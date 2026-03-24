@@ -1,0 +1,37 @@
+{
+  "name": "screeps-stats",
+  "version": "1.0.0",
+  "description": "A Vue 3 + Vite dashboard hosted on Vercel that visualises `Memory.stats` from Screeps.   Your Screeps token is **never exposed to the browser** — all API calls are proxied through a Vercel serverless function.",
+  "main": "index.js",
+  "scripts": {
+    "setup":  "cp -n .env.example .env; cd dashboard && npm install",
+    "dev":    "concurrently --names \"API,UI\" --prefix-colors \"cyan,magenta\" \"node server.js\" \"npm run ui\"",
+    "api":    "node server.js",
+    "ui":     "cd dashboard && npm run dev",
+    "build":  "cd dashboard && npm run build",
+    "reset:history": "node scripts/reset-history.mjs",
+    "reset:history:blob": "node scripts/reset-history.mjs --blob",
+    "test":   "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LauwrensReyneke/Screeps-Stats.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/LauwrensReyneke/Screeps-Stats/issues"
+  },
+  "homepage": "https://github.com/LauwrensReyneke/Screeps-Stats#readme",
+  "dependencies": {
+    "@vercel/blob": "^2.3.1",
+    "better-sqlite3": "^12.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1"
+  }
+}

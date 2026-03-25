@@ -1,5 +1,5 @@
 <template>
-  <div class="glass relative flex flex-col justify-between overflow-visible px-5 py-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_20px_42px_rgba(15,23,42,0.08)]">
+  <div class="glass relative flex flex-col justify-between overflow-hidden px-5 py-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_20px_42px_rgba(15,23,42,0.08)]">
     <!-- colored top-edge accent line -->
     <div class="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl" :class="accentLine"></div>
 
@@ -7,18 +7,9 @@
     <div class="flex items-start justify-between gap-2">
       <div class="flex items-center gap-1.5">
         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">{{ label }}</span>
-        <div v-if="info" class="group relative">
-          <button
-            type="button"
-            class="flex size-4 items-center justify-center rounded-full border border-slate-300 bg-white text-[9px] font-bold leading-none text-slate-500 transition-colors hover:border-indigo-300 hover:text-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
-            aria-label="Metric explanation"
-          >i</button>
-          <div
-            class="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-56 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-medium normal-case tracking-normal text-slate-600 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
-          >
-            {{ info }}
-          </div>
-        </div>
+        <InfoTooltip v-if="info" aria-label="Metric explanation">
+          {{ info }}
+        </InfoTooltip>
       </div>
       <div v-if="icon" class="flex size-7 items-center justify-center rounded-lg" :class="iconBg">
         <font-awesome-icon :icon="icon" class="text-xs" :class="iconFg" />
@@ -48,6 +39,7 @@
 <script setup>
 import { computed } from 'vue';
 import ApexChart from 'vue3-apexcharts';
+import InfoTooltip from './InfoTooltip.vue';
 
 const props = defineProps({
   label:     { type: String,  required: true },

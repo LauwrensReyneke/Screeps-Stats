@@ -12,8 +12,8 @@
     <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl">
       <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3">
         <div class="flex items-center gap-3">
-          <div class="flex size-8 items-center justify-center rounded-lg bg-indigo-500/20 ring-1 ring-indigo-500/30">
-            <img src="https://screeps.com/favicon.ico" alt="Screeps" class="size-4 rounded-sm opacity-90" />
+          <div class="flex h-10 w-auto items-center justify-center rounded-lg bg-indigo-950/100 ring-1 ring-indigo-500/30">
+            <img :src="screepsLogo" alt="Screeps" class="h-6 w-auto rounded-sm opacity-90" />
           </div>
           <div>
             <h1 class="text-sm font-bold tracking-tight text-slate-900">Screeps</h1>
@@ -97,7 +97,11 @@
         <!-- ── THREAT BANNER ── -->
         <section v-if="threatRooms.length" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
           <div class="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-600">
-            <span class="size-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.35)]"></span> Threat Monitor
+            <span class="size-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.35)]"></span>
+            <span>Threat Monitor</span>
+            <InfoTooltip aria-label="Threat monitor explanation">
+              Rooms with active hostile creeps. This helps you quickly spot invaded territories that need attention.
+            </InfoTooltip>
           </div>
           <div class="flex flex-wrap gap-2">
             <span v-for="room in threatRooms" :key="room.name"
@@ -114,7 +118,12 @@
           <div class="glass p-5 space-y-5">
             <div>
               <div class="mb-2.5 flex items-center justify-between">
-                <span class="text-xs font-bold uppercase tracking-widest text-slate-400">CPU Utilization</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold uppercase tracking-widest text-slate-400">CPU Utilization</span>
+                  <InfoTooltip aria-label="CPU usage explanation">
+                    How much of your CPU limit you're using per tick. High values (>90%) indicate tight performance margins.
+                  </InfoTooltip>
+                </div>
                 <span class="text-xs font-semibold tabular-nums" :class="cpuUsedPct >= 90 ? 'text-rose-500' : cpuUsedPct >= 70 ? 'text-amber-500' : 'text-emerald-500'">
                   {{ cpuUsedPct }}%
                 </span>
@@ -133,7 +142,12 @@
           <!-- Global / GCL -->
           <div class="glass p-5">
             <div class="mb-4 flex items-center justify-between">
-              <h2 class="text-sm font-bold uppercase tracking-widest text-slate-500">Global</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-bold uppercase tracking-widest text-slate-500">Global</h2>
+                <InfoTooltip aria-label="Global stats explanation">
+                  Cross-shard statistics for your account, aggregating data across all shards you control.
+                </InfoTooltip>
+              </div>
               <span class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
                 {{ shardOptions.length }} shard{{ shardOptions.length !== 1 ? 's' : '' }}
               </span>
@@ -226,6 +240,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import ApexChart from 'vue3-apexcharts';
+import screepsLogo from './assets/screeps.svg';
 import {
   faTriangleExclamation,
   faClockRotateLeft,
@@ -243,6 +258,7 @@ import PhaseBars from './components/PhaseBars.vue';
 import RoomsTable from './components/RoomsTable.vue';
 import HistoryChart from './components/HistoryChart.vue';
 import MetricHeatmap from './components/MetricHeatmap.vue';
+import InfoTooltip from './components/InfoTooltip.vue';
 
 const PREFS_KEY = 'screeps-stats.ui-prefs.v1';
 

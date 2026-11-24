@@ -108,6 +108,9 @@ function applySchema(db) {
   ensureColumn(db, 'room_snapshots', "distress_json TEXT NOT NULL DEFAULT '[]'");
   ensureColumn(db, 'room_snapshots', 'tower_count INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'room_snapshots', 'tower_energy INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'room_snapshots', 'policy TEXT');
+  ensureColumn(db, 'room_snapshots', 'gcl_focus INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'room_snapshots', 'upgrade_per_tick REAL NOT NULL DEFAULT 0');
 }
 
 async function downloadBlob() {
@@ -196,7 +199,8 @@ export async function persistSnapshot(stats) {
       storage_energy, terminal_energy,
       hostiles, hostile_offence, safe_mode,
       room_cpu, roles_json, distress_json,
-      tower_count, tower_energy
+      tower_count, tower_energy,
+      policy, gcl_focus, upgrade_per_tick
     ) VALUES (
       @snapshot_id, @room, @shard, @rcl, @owned,
       @energy, @energy_cap, @creeps, @spawns,
@@ -205,7 +209,8 @@ export async function persistSnapshot(stats) {
       @storage_energy, @terminal_energy,
       @hostiles, @hostile_offence, @safe_mode,
       @room_cpu, @roles_json, @distress_json,
-      @tower_count, @tower_energy
+      @tower_count, @tower_energy,
+      @policy, @gcl_focus, @upgrade_per_tick
     )
   `);
 
@@ -254,6 +259,9 @@ export async function persistSnapshot(stats) {
         distress_json: JSON.stringify(room.distress || []),
         tower_count: room.towerCount ?? 0,
         tower_energy: room.towerEnergy ?? 0,
+        policy: room.policy ?? null,
+        gcl_focus: room.gclFocus ? 1 : 0,
+        upgrade_per_tick: room.upgradePerTick ?? 0,
       });
     }
   });
@@ -325,8 +333,8 @@ export async function queryHistory({ room, limit = 288, since } = {}) {
 
 const GLOBAL_AVG = ['cpu_used', 'cpu_limit', 'cpu_bucket', 'total_creeps', 'total_rooms', 'owned_rooms', 'cpu_per_creep', 'memory_bytes'];
 const GLOBAL_LAST = ['tick', 'gcl_level', 'gcl_progress', 'gcl_progress_total', 'credits', 'pixels'];
-const ROOM_AVG = ['energy', 'energy_cap', 'creeps', 'storage_energy', 'terminal_energy', 'hostiles', 'hostile_offence', 'room_cpu', 'tower_energy'];
-const ROOM_LAST = ['tick', 'rcl', 'owned', 'spawns', 'controller_progress', 'controller_progress_total', 'ticks_to_downgrade', 'safe_mode', 'tower_count'];
+const ROOM_AVG = ['energy', 'energy_cap', 'creeps', 'storage_energy', 'terminal_energy', 'hostiles', 'hostile_offence', 'room_cpu', 'tower_energy', 'upgrade_per_tick'];
+const ROOM_LAST = ['tick', 'rcl', 'owned', 'spawns', 'controller_progress', 'controller_progress_total', 'ticks_to_downgrade', 'safe_mode', 'tower_count', 'policy', 'gcl_focus'];
 
 function bucketSizeFor(since, until, points) {
   const span = Math.max(1, until - since);
@@ -470,7 +478,8 @@ export async function queryLatestSnapshot() {
       ticks_to_downgrade,
       storage_energy, terminal_energy,
       hostiles, hostile_offence, safe_mode, owned, room_cpu,
-      roles_json, distress_json, tower_count, tower_energy
+      roles_json, distress_json, tower_count, tower_energy,
+      policy, gcl_focus, upgrade_per_tick
     FROM room_snapshots
     WHERE snapshot_id = @snapshotId
     ORDER BY room ASC
@@ -499,6 +508,9 @@ export async function queryLatestSnapshot() {
       distress: safeJson(r.distress_json, []),
       towerCount: r.tower_count,
       towerEnergy: r.tower_energy,
+      policy: r.policy,
+      gclFocus: r.gcl_focus === 1,
+      upgradePerTick: r.upgrade_per_tick,
       name: r.room,
       shard: r.shard,
       rcl: r.rcl,

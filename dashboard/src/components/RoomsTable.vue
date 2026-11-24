@@ -40,7 +40,7 @@
                 <span class="font-bold text-slate-900">{{ room.name }}</span>
                 <span v-if="!room.owned" class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">remote</span>
               </div>
-              <div class="text-[11px] text-slate-400">{{ room.shard }}</div>
+              <div class="text-[11px] text-slate-400">{{ room.shard }}<span v-if="room.policy"> · {{ room.policy }}</span></div>
             </td>
 
             <td class="px-4 py-2.5">
@@ -78,6 +78,9 @@
             </td>
 
             <td class="px-4 py-2.5 text-right tabular-nums text-slate-700">{{ room.creeps }}</td>
+            <td class="px-4 py-2.5 text-right tabular-nums" :class="room.gclFocus ? 'font-bold text-violet-700' : 'text-slate-700'">
+              {{ room.upgradePerTick ? `${room.upgradePerTick.toFixed(1)}/t` : '—' }}
+            </td>
             <td class="px-4 py-2.5 text-right tabular-nums text-slate-700">{{ room.cpuTotal ? room.cpuTotal.toFixed(2) : '—' }}</td>
 
             <td class="px-4 py-2.5">
@@ -86,6 +89,7 @@
                 <span v-if="room.hostiles > 0" class="badge" :class="room.hostileOffence > 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'">
                   <font-awesome-icon :icon="faShieldHalved" />{{ room.hostiles }} hostile
                 </span>
+                <span v-if="room.gclFocus" class="badge bg-violet-100 text-violet-700"><font-awesome-icon :icon="faArrowUpRightDots" />GCL focus</span>
                 <span v-if="room.safeMode > 0" class="badge bg-sky-100 text-sky-700"><font-awesome-icon :icon="faLock" />safe mode</span>
                 <span v-if="isStarved(room)" class="badge bg-amber-100 text-amber-700"><font-awesome-icon :icon="faBatteryEmpty" />starved</span>
                 <span v-if="towersLow(room)" class="badge" :class="room.hostiles > 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'"><font-awesome-icon :icon="faTowerObservation" />towers low</span>
@@ -116,7 +120,7 @@
 import { computed, ref } from 'vue';
 import { Switch, SwitchGroup, SwitchLabel } from '@headlessui/vue';
 import {
-  faTableCells, faArrowUp, faArrowDown, faHeartPulse, faShieldHalved, faLock, faCheck, faArrowUpRightFromSquare, faBatteryEmpty, faTowerObservation,
+  faTableCells, faArrowUp, faArrowDown, faHeartPulse, faShieldHalved, faLock, faCheck, faArrowUpRightFromSquare, faBatteryEmpty, faTowerObservation, faArrowUpRightDots,
 } from '@fortawesome/free-solid-svg-icons';
 import Panel from './Panel.vue';
 import { fmtCompact, fmtSigned, fmtDuration } from '../lib/format.js';
@@ -135,6 +139,7 @@ const COLUMNS = [
   { key: 'fill', label: 'Spawn energy', sort: true },
   { key: 'stored', label: 'Stored', sort: true, align: 'right' },
   { key: 'creeps', label: 'Creeps', sort: true, align: 'right' },
+  { key: 'upgrade', label: 'Upgrade', sort: true, align: 'right' },
   { key: 'cpu', label: 'CPU', sort: true, align: 'right' },
   { key: 'status', label: 'Status', sort: true },
   { key: 'link', label: '' },
@@ -173,6 +178,7 @@ const SORTERS = {
   stored: stored,
   creeps: (r) => r.creeps,
   cpu: (r) => r.cpuTotal || 0,
+  upgrade: (r) => r.upgradePerTick || 0,
   status: statusScore,
 };
 

@@ -124,6 +124,9 @@ const facts = computed(() => {
     const avg = r.towerEnergy / r.towerCount;
     out.push({ label: 'Towers', value: `${Math.round((avg / 1000) * 100)}%`, sub: `${fmtInt(r.towerEnergy)} energy in ${r.towerCount}` });
   }
+  if (r.owned) {
+    out.push({ label: 'Upgrading', value: r.upgradePerTick ? `${r.upgradePerTick.toFixed(1)}/tick` : '—', sub: r.gclFocus ? 'GCL focus' : (r.policy || '') });
+  }
   out.push({ label: 'Room CPU', value: r.cpuTotal ? r.cpuTotal.toFixed(2) : '—', sub: r.safeModeAvailable ? `${r.safeModeAvailable} safe modes` : '' });
   return out;
 });

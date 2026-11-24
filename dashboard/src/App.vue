@@ -76,12 +76,15 @@
             label="Credits" :icon="faCoins" tone="emerald"
             :value="fmtCompact(data.global?.credits || 0)"
             :delta="creditsDelta"
+            :sub="marketSub"
             :spark="history.map((r) => r.credits)"
-            info="Market credits, with the change over the selected range."
+            info="Market credits, with the change over the selected range, and what the bot has spent buying energy and upgrade boosts in its current budget window."
           />
         </section>
 
         <AlertsPanel :alerts="alerts" @open-room="openRoom" />
+
+        <GclPanel :history="history" :roomSeries="roomSeries" :rooms="rooms" />
 
         <section class="grid items-start gap-5 xl:grid-cols-2">
           <CpuPanel :history="history" :data="data" />
@@ -113,6 +116,7 @@ import CpuPanel from './components/CpuPanel.vue';
 import ColonyPanel from './components/ColonyPanel.vue';
 import RoomsTable from './components/RoomsTable.vue';
 import RoomDrawer from './components/RoomDrawer.vue';
+import GclPanel from './components/GclPanel.vue';
 import { fmtInt, fmtCompact, fmtDuration, fmtBytes, fmtSigned } from './lib/format.js';
 import { buildAlerts, progressEta } from './lib/derive.js';
 import { usePref } from './lib/prefs.js';
@@ -259,6 +263,15 @@ const creditsDelta = computed(() => {
   if (h.length < 2) return null;
   const d = h.at(-1).credits - h[0].credits;
   return { text: fmtSigned(d), direction: d > 0 ? 'up' : d < 0 ? 'down' : 'flat', good: d === 0 ? null : d > 0 };
+});
+
+const marketSub = computed(() => {
+  const m = data.value?.global?.market;
+  if (!m) return '';
+  const parts = [];
+  if (m.energySpent) parts.push(`${fmtCompact(m.energySpent)} on energy`);
+  if (m.boostSpent) parts.push(`${fmtCompact(m.boostSpent)} on boosts`);
+  return parts.length ? `spent ${parts.join(', ')}` : 'no buying this window';
 });
 
 const alerts = computed(() => buildAlerts({ data: data.value ? { ...data.value, rooms: rooms.value } : null, history: history.value }));

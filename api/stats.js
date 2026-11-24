@@ -110,6 +110,14 @@ function normalizeStats(raw, fallbackShard) {
   };
 
   if (rawGlobal.pixels !== undefined) global.pixels = num(rawGlobal.pixels, 0);
+  if (rawGlobal.market && typeof rawGlobal.market === 'object') {
+    global.market = {
+      energySpent: num(rawGlobal.market.energySpent, 0),
+      energyBudget: num(rawGlobal.market.energyBudget, 0),
+      boostSpent: num(rawGlobal.market.boostSpent, 0),
+      boostBudget: num(rawGlobal.market.boostBudget, 0),
+    };
+  }
 
   const totals = {
     creeps: num(stats.creepCount ?? safeRaw.creepCount, rooms.reduce((sum, r) => sum + num(r.creeps, 0), 0)),
@@ -182,6 +190,9 @@ function normalizeRoom(r, fallbackShard) {
     distress:                Array.isArray(r.distress) ? r.distress.map(String) : [],
     towerCount:              num(r.towerCount, 0),
     towerEnergy:             num(r.towerEnergy, 0),
+    policy:                  typeof r.policy === 'string' ? r.policy : null,
+    gclFocus:                Boolean(r.gclFocus),
+    upgradePerTick:          num(r.upgradePerTick, 0),
     cpu,
     cpuTotal,
     name:                    r.name || r.roomName || 'unknown',

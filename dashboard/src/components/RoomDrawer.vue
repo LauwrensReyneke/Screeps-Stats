@@ -147,9 +147,9 @@ const chartOptions = computed(() => {
     chart: { stacked: chart.value === 'stored' },
     colors: chart.value === 'stored' ? [PALETTE.indigo, PALETTE.sky] : chart.value === 'cpu' ? [PALETTE.violet] : [PALETTE.emerald],
     fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.04 } },
-    yaxis: pct
+    yaxis: [pct
       ? { min: 0, max: 100, labels: { formatter: (v) => `${Math.round(v)}%` } }
-      : { labels: { formatter: (v) => (chart.value === 'cpu' ? v.toFixed(2) : fmtCompact(v)) } },
+      : { labels: { formatter: (v) => (chart.value === 'cpu' ? v.toFixed(2) : fmtCompact(v)) } }],
     legend: { show: chart.value === 'stored' },
     tooltip: { shared: true },
   });

@@ -78,13 +78,25 @@ const subtitle = computed(() => {
 });
 
 // Series per owned room, aligned on bucket start so stacking lines up.
+//
+// Every room needs a value in every bucket: ApexCharts stacks a null as if
+// the rest of the stack had no floor, and the whole chart shot off the top
+// whenever one room (a new claim, a room out of vision) was missing a bucket.
+// Gaps carry the room's last known value; before its first point it is 0.
 function alignedRoomSeries(valueFn) {
   const owned = new Set(props.ownedRooms);
   const names = Object.keys(props.roomSeries).filter((n) => owned.has(n)).sort();
   const buckets = [...new Set(names.flatMap((n) => props.roomSeries[n].map((p) => p.bucket)))].sort((a, b) => a - b);
   return names.map((name) => {
     const byBucket = new Map(props.roomSeries[name].map((p) => [p.bucket, p]));
-    return { name, data: buckets.map((b) => [b, byBucket.has(b) ? valueFn(byBucket.get(b)) : null]) };
+    let last = 0;
+    return {
+      name,
+      data: buckets.map((b) => {
+        if (byBucket.has(b)) last = valueFn(byBucket.get(b));
+        return [b, last];
+      }),
+    };
   });
 }
 
@@ -94,24 +106,32 @@ const energyTotals = computed(() => {
   if (!s.length) return [];
   return s[0].data.map(([t], i) => [t, s.reduce((sum, r) => sum + (r.data[i][1] || 0), 0)]);
 });
-const energyOptions = computed(() => base({
+// Stacked charts take static options and an array y-axis. Options that
+// depended on the series were rebuilt on every refresh, and ApexCharts'
+// updateOptions on a stacked chart dropped the y-axis label formatter:
+// the axis read 500000 until the chart happened to remount.
+const energyOptions = base({
   chart: { stacked: true },
   stroke: { width: 1 },
   fill: { type: 'gradient', gradient: { opacityFrom: 0.5, opacityTo: 0.2 } },
-  yaxis: { labels: { formatter: (v) => fmtCompact(v) } },
-  tooltip: { shared: true, y: { formatter: (v) => (v === null ? '—' : fmtCompact(v, 2)) } },
-  legend: { show: energySeries.value.length <= 14 },
-}));
+  yaxis: [{ labels: { formatter: (v) => fmtCompact(v) } }],
+  tooltip: { shared: true, y: { formatter: (v) => fmtCompact(v, 2) } },
+});
 
 const populationSeries = computed(() => {
   const names = Object.keys(props.roomSeries);
   const buckets = [...new Set(names.flatMap((n) => props.roomSeries[n].map((p) => p.bucket)))].sort((a, b) => a - b);
   const totals = {};
+  // Same carry-forward as alignedRoomSeries: a room missing from a bucket
+  // keeps its last known roles rather than dropping out of the total.
+  const byRoom = Object.fromEntries(names.map((n) => [n, new Map(props.roomSeries[n].map((p) => [p.bucket, p]))]));
+  const lastRoles = {};
   const perBucket = buckets.map((b) => {
     const roles = {};
     for (const n of names) {
-      const p = props.roomSeries[n].find((x) => x.bucket === b);
-      for (const [role, c] of Object.entries(p?.roles || {})) {
+      const p = byRoom[n].get(b);
+      if (p) lastRoles[n] = p.roles || {};
+      for (const [role, c] of Object.entries(lastRoles[n] || {})) {
         roles[role] = (roles[role] || 0) + (Number(c) || 0);
         totals[role] = (totals[role] || 0) + (Number(c) || 0);
       }
@@ -121,13 +141,13 @@ const populationSeries = computed(() => {
   const top = Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([r]) => r).slice(0, 8);
   return top.map((role) => ({ name: role, data: buckets.map((b, i) => [b, perBucket[i][role] || 0]) }));
 });
-const populationOptions = computed(() => base({
+const populationOptions = base({
   chart: { stacked: true },
   stroke: { width: 1 },
   fill: { type: 'gradient', gradient: { opacityFrom: 0.5, opacityTo: 0.2 } },
-  yaxis: { labels: { formatter: (v) => Math.round(v) } },
+  yaxis: [{ labels: { formatter: (v) => Math.round(v) } }],
   tooltip: { shared: true },
-}));
+});
 
 const creditSeries = computed(() => [{ name: 'Credits', data: props.history.map((r) => [r.ts, Math.round(r.credits)]) }]);
 const creditOptions = computed(() => base({

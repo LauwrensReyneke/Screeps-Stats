@@ -172,7 +172,9 @@ const roleHistoryOptions = computed(() => base({
   colors: [...roleRows.value.slice(0, 7).map((r) => r.color), PALETTE.muted],
   stroke: { width: 1 },
   fill: { type: 'gradient', gradient: { opacityFrom: 0.55, opacityTo: 0.25 } },
-  yaxis: { labels: { formatter: (v) => v.toFixed(1) }, title: { text: 'CPU', style: { fontWeight: 600 } } },
+  // Array form: see ColonyPanel energyOptions (stacked charts lost the
+  // formatter on updateOptions with an object y-axis).
+  yaxis: [{ labels: { formatter: (v) => v.toFixed(1) }, title: { text: 'CPU', style: { fontWeight: 600 } } }],
   tooltip: { shared: true, y: { formatter: (v) => v.toFixed(3) } },
 }));
 

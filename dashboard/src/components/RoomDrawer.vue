@@ -120,6 +120,10 @@ const facts = computed(() => {
     const full = CONTROLLER_DOWNGRADE[r.rcl];
     out.push({ label: 'Downgrade timer', value: fmtCompact(r.ticksToDowngrade), sub: full ? `${Math.round((r.ticksToDowngrade / full) * 100)}% of full` : '' });
   }
+  if (r.towerCount > 0) {
+    const avg = r.towerEnergy / r.towerCount;
+    out.push({ label: 'Towers', value: `${Math.round((avg / 1000) * 100)}%`, sub: `${fmtInt(r.towerEnergy)} energy in ${r.towerCount}` });
+  }
   out.push({ label: 'Room CPU', value: r.cpuTotal ? r.cpuTotal.toFixed(2) : '—', sub: r.safeModeAvailable ? `${r.safeModeAvailable} safe modes` : '' });
   return out;
 });

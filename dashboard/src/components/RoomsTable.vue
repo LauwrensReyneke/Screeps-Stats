@@ -88,7 +88,8 @@
                 </span>
                 <span v-if="room.safeMode > 0" class="badge bg-sky-100 text-sky-700"><font-awesome-icon :icon="faLock" />safe mode</span>
                 <span v-if="isStarved(room)" class="badge bg-amber-100 text-amber-700"><font-awesome-icon :icon="faBatteryEmpty" />starved</span>
-                <span v-if="room.owned && !room.distress?.length && !(room.hostiles > 0) && !(room.safeMode > 0) && !isStarved(room)" class="badge bg-emerald-50 text-emerald-700">
+                <span v-if="towersLow(room)" class="badge" :class="room.hostiles > 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'"><font-awesome-icon :icon="faTowerObservation" />towers low</span>
+                <span v-if="room.owned && !room.distress?.length && !(room.hostiles > 0) && !(room.safeMode > 0) && !isStarved(room) && !towersLow(room)" class="badge bg-emerald-50 text-emerald-700">
                   <font-awesome-icon :icon="faCheck" />healthy
                 </span>
               </div>
@@ -115,11 +116,11 @@
 import { computed, ref } from 'vue';
 import { Switch, SwitchGroup, SwitchLabel } from '@headlessui/vue';
 import {
-  faTableCells, faArrowUp, faArrowDown, faHeartPulse, faShieldHalved, faLock, faCheck, faArrowUpRightFromSquare, faBatteryEmpty,
+  faTableCells, faArrowUp, faArrowDown, faHeartPulse, faShieldHalved, faLock, faCheck, faArrowUpRightFromSquare, faBatteryEmpty, faTowerObservation,
 } from '@fortawesome/free-solid-svg-icons';
 import Panel from './Panel.vue';
 import { fmtCompact, fmtSigned, fmtDuration } from '../lib/format.js';
-import { progressEta, storedEnergy, isStarved } from '../lib/derive.js';
+import { progressEta, storedEnergy, isStarved, towersLow } from '../lib/derive.js';
 import { usePref } from '../lib/prefs.js';
 
 const props = defineProps({
@@ -163,7 +164,7 @@ function rclEtaText(r) {
   return eta && eta.msLeft ? `${pct} · ${fmtDuration(eta.msLeft)}` : pct;
 }
 
-const statusScore = (r) => (r.distress?.length ? 100 : 0) + (r.hostileOffence > 0 ? 50 : 0) + (r.hostiles > 0 ? 10 : 0) + (isStarved(r) ? 8 : 0) + (r.safeMode > 0 ? 5 : 0);
+const statusScore = (r) => (r.distress?.length ? 100 : 0) + (r.hostileOffence > 0 ? 50 : 0) + (r.hostiles > 0 ? 10 : 0) + (isStarved(r) ? 8 : 0) + (towersLow(r) ? (r.hostiles > 0 ? 60 : 7) : 0) + (r.safeMode > 0 ? 5 : 0);
 
 const SORTERS = {
   name: (r) => r.name,

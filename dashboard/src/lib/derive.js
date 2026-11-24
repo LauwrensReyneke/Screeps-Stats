@@ -47,6 +47,19 @@ export function isStarved(room) {
   return !!room.owned && room.rcl >= 4 && storedEnergy(room) < STARVED_BELOW;
 }
 
+// Average energy per tower below which towers can't hold off an attack.
+export const TOWERS_READY = 500;
+
+/** Average energy per tower, or null for a room with none (or no data). */
+export function towerFill(room) {
+  return room.towerCount > 0 ? room.towerEnergy / room.towerCount : null;
+}
+
+export function towersLow(room) {
+  const f = towerFill(room);
+  return !!room.owned && f !== null && f < TOWERS_READY;
+}
+
 export function storedEnergy(room) {
   return (Number(room.storageEnergy ?? room.storage_energy) || 0) + (Number(room.terminalEnergy ?? room.terminal_energy) || 0);
 }
@@ -74,6 +87,15 @@ export function buildAlerts({ data, history }) {
     if (room.hostileOffence > 0) {
       alerts.push({ level: 'critical', title: `${room.name} under attack`,
         detail: `${room.hostiles} hostiles, ${room.hostileOffence} offence`, room: room.name });
+    }
+    if (towersLow(room)) {
+      const attacked = room.hostiles > 0;
+      alerts.push({
+        level: attacked ? 'critical' : 'warning',
+        title: `${room.name} towers ${attacked ? 'empty under attack' : 'not ready'}`,
+        detail: `${Math.round(towerFill(room))} energy per tower (${room.towerCount} towers)${attacked ? ' — hostiles present' : ''}`,
+        room: room.name,
+      });
     }
     if (room.safeMode > 0) {
       alerts.push({ level: 'info', title: `${room.name} in safe mode`, detail: `${room.safeMode.toLocaleString('en')} ticks left`, room: room.name });

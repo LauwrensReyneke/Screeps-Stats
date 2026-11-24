@@ -180,6 +180,8 @@ function normalizeRoom(r, fallbackShard) {
     safeModeAvailable:       num(r.safeModeAvailable, 0),
     hostileOffence:          num(r.hostileOffence, 0),
     distress:                Array.isArray(r.distress) ? r.distress.map(String) : [],
+    towerCount:              num(r.towerCount, 0),
+    towerEnergy:             num(r.towerEnergy, 0),
     cpu,
     cpuTotal,
     name:                    r.name || r.roomName || 'unknown',

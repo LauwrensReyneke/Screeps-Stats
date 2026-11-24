@@ -3,14 +3,13 @@ import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
   plugins: [vue()],
-  // When running `vite dev` directly (without `vercel dev`),
-  // proxy /api/* to the local Vercel dev server on port 3000.
-  // Run `vercel dev` in the project root and `npm run dev` in dashboard/ simultaneously.
+  // In development, /api/* is proxied to the local API server (server.js,
+  // port 8080 by default). API_PORT overrides it, e.g. to run a second copy.
   server: {
-    port: 5173,
+    port: 8000,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: `http://localhost:${process.env.API_PORT || 8080}`,
         changeOrigin: true,
       },
     },

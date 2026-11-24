@@ -92,6 +92,20 @@ function applySchema(db) {
   ensureColumn(db, 'room_snapshots', 'terminal_energy REAL NOT NULL DEFAULT 0');
   ensureColumn(db, 'room_snapshots', 'hostiles INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'room_snapshots', "roles_json TEXT NOT NULL DEFAULT '{}'");
+
+  // v2: everything else the bot already reports.
+  ensureColumn(db, 'snapshots', 'cpu_per_creep REAL NOT NULL DEFAULT 0');
+  ensureColumn(db, 'snapshots', 'memory_bytes INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'snapshots', 'owned_rooms INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'snapshots', 'pixels INTEGER');
+  ensureColumn(db, 'snapshots', "roles_cpu_json TEXT NOT NULL DEFAULT '{}'");
+  ensureColumn(db, 'snapshots', "phases_json TEXT NOT NULL DEFAULT '{}'");
+
+  ensureColumn(db, 'room_snapshots', 'owned INTEGER NOT NULL DEFAULT 1');
+  ensureColumn(db, 'room_snapshots', 'room_cpu REAL NOT NULL DEFAULT 0');
+  ensureColumn(db, 'room_snapshots', 'hostile_offence INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'room_snapshots', 'safe_mode INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'room_snapshots', "distress_json TEXT NOT NULL DEFAULT '[]'");
 }
 
 async function downloadBlob() {
@@ -145,35 +159,49 @@ function safeJson(value, fallback = {}) {
 export async function persistSnapshot(stats) {
   const db = await openDb();
 
+  // The stats segment only changes every 20 game ticks; a second poll of the
+  // same frame would be a duplicate point.
+  const last = db.prepare('SELECT tick FROM snapshots ORDER BY ts DESC LIMIT 1').get();
+  if (last && last.tick === stats.tick) {
+    db.close();
+    return;
+  }
+
   const insertSnap = db.prepare(`
     INSERT INTO snapshots (
       ts, tick, cpu_used, cpu_limit, cpu_bucket,
-      total_creeps, total_rooms,
+      total_creeps, total_rooms, owned_rooms,
       gcl_level, gcl_progress, gcl_progress_total,
-      credits
+      credits, pixels,
+      cpu_per_creep, memory_bytes,
+      roles_cpu_json, phases_json
     ) VALUES (
       @ts, @tick, @cpu_used, @cpu_limit, @cpu_bucket,
-      @total_creeps, @total_rooms,
+      @total_creeps, @total_rooms, @owned_rooms,
       @gcl_level, @gcl_progress, @gcl_progress_total,
-      @credits
+      @credits, @pixels,
+      @cpu_per_creep, @memory_bytes,
+      @roles_cpu_json, @phases_json
     )
   `);
 
   const insertRoom = db.prepare(`
     INSERT INTO room_snapshots (
-      snapshot_id, room, shard, rcl,
+      snapshot_id, room, shard, rcl, owned,
       energy, energy_cap, creeps, spawns,
       controller_progress, controller_progress_total,
       ticks_to_downgrade,
       storage_energy, terminal_energy,
-      hostiles, roles_json
+      hostiles, hostile_offence, safe_mode,
+      room_cpu, roles_json, distress_json
     ) VALUES (
-      @snapshot_id, @room, @shard, @rcl,
+      @snapshot_id, @room, @shard, @rcl, @owned,
       @energy, @energy_cap, @creeps, @spawns,
       @controller_progress, @controller_progress_total,
       @ticks_to_downgrade,
       @storage_energy, @terminal_energy,
-      @hostiles, @roles_json
+      @hostiles, @hostile_offence, @safe_mode,
+      @room_cpu, @roles_json, @distress_json
     )
   `);
 
@@ -186,10 +214,16 @@ export async function persistSnapshot(stats) {
       cpu_bucket: s.cpu.bucket,
       total_creeps: s.totals?.creeps ?? 0,
       total_rooms: s.totals?.rooms ?? 0,
+      owned_rooms: s.totals?.ownedRooms ?? 0,
       gcl_level: s.global?.gcl?.level ?? 0,
       gcl_progress: s.global?.gcl?.progress ?? 0,
       gcl_progress_total: s.global?.gcl?.progressTotal ?? 0,
       credits: s.global?.credits ?? 0,
+      pixels: s.global?.pixels ?? null,
+      cpu_per_creep: s.cpuPerCreep ?? 0,
+      memory_bytes: s.memoryBytes ?? 0,
+      roles_cpu_json: JSON.stringify(s.roles || {}),
+      phases_json: JSON.stringify(Object.fromEntries((s.phases || []).map((p) => [p.name, p.duration]))),
     });
 
     for (const room of s.rooms || []) {
@@ -208,7 +242,12 @@ export async function persistSnapshot(stats) {
         storage_energy: room.storageEnergy ?? 0,
         terminal_energy: room.terminalEnergy ?? 0,
         hostiles: room.hostiles ?? 0,
+        hostile_offence: room.hostileOffence ?? 0,
+        safe_mode: room.safeMode ?? 0,
+        owned: room.owned === false ? 0 : 1,
+        room_cpu: room.cpuTotal ?? 0,
         roles_json: JSON.stringify(room.creepsByRole || {}),
+        distress_json: JSON.stringify(room.distress || []),
       });
     }
   });
@@ -271,6 +310,130 @@ export async function queryHistory({ room, limit = 288, since } = {}) {
   return rows;
 }
 
+// ─── Range queries, downsampled ──────────────────────────────────────────────
+//
+// The dashboard asks for a time range and a target point count. Rows in each
+// time bucket are folded into one point: gauges averaged, counters and levels
+// taken from the bucket's last row, and JSON maps averaged per key. One request
+// returns every room, instead of one request per room.
+
+const GLOBAL_AVG = ['cpu_used', 'cpu_limit', 'cpu_bucket', 'total_creeps', 'total_rooms', 'owned_rooms', 'cpu_per_creep', 'memory_bytes'];
+const GLOBAL_LAST = ['tick', 'gcl_level', 'gcl_progress', 'gcl_progress_total', 'credits', 'pixels'];
+const ROOM_AVG = ['energy', 'energy_cap', 'creeps', 'storage_energy', 'terminal_energy', 'hostiles', 'hostile_offence', 'room_cpu'];
+const ROOM_LAST = ['tick', 'rcl', 'owned', 'spawns', 'controller_progress', 'controller_progress_total', 'ticks_to_downgrade', 'safe_mode'];
+
+function bucketSizeFor(since, until, points) {
+  const span = Math.max(1, until - since);
+  return Math.max(60_000, Math.ceil(span / Math.max(1, points)));
+}
+
+function averageMaps(maps) {
+  const sums = {};
+  let n = 0;
+  for (const m of maps) {
+    // Rows from before a column existed hold '{}': no data, not zero.
+    if (!m || typeof m !== 'object' || !Object.keys(m).length) continue;
+    n++;
+    for (const [k, v] of Object.entries(m)) {
+      if (v && typeof v === 'object') {
+        // role CPU entries: { count, cpu, cpuPer }
+        const acc = sums[k] || (sums[k] = { count: 0, cpu: 0 });
+        acc.count += Number(v.count) || 0;
+        acc.cpu += Number(v.cpu) || 0;
+      } else {
+        sums[k] = (sums[k] || 0) + (Number(v) || 0);
+      }
+    }
+  }
+  if (!n) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(sums)) {
+    if (typeof v === 'object') {
+      const count = v.count / n;
+      const cpu = v.cpu / n;
+      out[k] = { count, cpu, cpuPer: count ? cpu / count : 0 };
+    } else {
+      out[k] = v / n;
+    }
+  }
+  return out;
+}
+
+function fold(rows, bucketMs, avgCols, lastCols, mapCols) {
+  const buckets = new Map();
+  for (const r of rows) {
+    const key = Math.floor(r.ts / bucketMs) * bucketMs;
+    let b = buckets.get(key);
+    if (!b) { b = []; buckets.set(key, b); }
+    b.push(r);
+  }
+
+  const out = [];
+  for (const [start, group] of [...buckets.entries()].sort((a, b) => a[0] - b[0])) {
+    const lastRow = group[group.length - 1];
+    const point = { ts: lastRow.ts, bucket: start, samples: group.length };
+    for (const c of avgCols) point[c] = group.reduce((s, r) => s + (Number(r[c]) || 0), 0) / group.length;
+    for (const c of lastCols) point[c] = lastRow[c];
+    for (const [col, name] of mapCols) {
+      point[name] = name === 'roles' || name === 'distress'
+        ? safeJson(lastRow[col], name === 'distress' ? [] : {})
+        : averageMaps(group.map((r) => safeJson(r[col], {})));
+    }
+    out.push(point);
+  }
+  return out;
+}
+
+/**
+ * Global series for a time range.
+ * @returns {{rows: object[], bucketMs: number}}
+ */
+export async function queryRange({ since = 0, until = Date.now(), points = 240 } = {}) {
+  const db = await openDb();
+  const rows = db.prepare(`
+    SELECT ts, ${[...GLOBAL_AVG, ...GLOBAL_LAST].join(', ')}, roles_cpu_json, phases_json
+    FROM snapshots
+    WHERE ts >= @since AND ts <= @until
+    ORDER BY ts ASC
+  `).all({ since, until });
+  db.close();
+
+  const from = rows.length ? rows[0].ts : since;
+  const bucketMs = bucketSizeFor(from, until, points);
+  return {
+    bucketMs,
+    rows: fold(rows, bucketMs, GLOBAL_AVG, GLOBAL_LAST, [['roles_cpu_json', 'roles_cpu'], ['phases_json', 'phases']]),
+  };
+}
+
+/**
+ * Per-room series for a time range, every room in one response.
+ * @returns {{rooms: Object<string, object[]>, bucketMs: number}}
+ */
+export async function queryRoomsRange({ since = 0, until = Date.now(), points = 120 } = {}) {
+  const db = await openDb();
+  const rows = db.prepare(`
+    SELECT s.ts, s.tick, r.room, r.shard, ${[...ROOM_AVG, ...ROOM_LAST.filter((c) => c !== 'tick')].map((c) => `r.${c}`).join(', ')},
+           r.roles_json, r.distress_json
+    FROM snapshots s
+    JOIN room_snapshots r ON r.snapshot_id = s.id
+    WHERE s.ts >= @since AND s.ts <= @until
+    ORDER BY s.ts ASC
+  `).all({ since, until });
+  db.close();
+
+  const from = rows.length ? rows[0].ts : since;
+  const bucketMs = bucketSizeFor(from, until, points);
+  const byRoom = {};
+  for (const r of rows) (byRoom[r.room] || (byRoom[r.room] = [])).push(r);
+
+  const rooms = {};
+  for (const [name, list] of Object.entries(byRoom)) {
+    rooms[name] = fold(list, bucketMs, ROOM_AVG, ROOM_LAST, [['roles_json', 'roles'], ['distress_json', 'distress']]);
+  }
+  return { bucketMs, rooms };
+}
+
 export async function queryLatestSnapshot() {
   const db = await openDb();
 
@@ -278,9 +441,10 @@ export async function queryLatestSnapshot() {
     SELECT
       id, ts, tick,
       cpu_used, cpu_limit, cpu_bucket,
-      total_creeps, total_rooms,
+      total_creeps, total_rooms, owned_rooms,
       gcl_level, gcl_progress, gcl_progress_total,
-      credits
+      credits, pixels, cpu_per_creep, memory_bytes,
+      roles_cpu_json, phases_json
     FROM snapshots
     ORDER BY ts DESC
     LIMIT 1
@@ -299,7 +463,8 @@ export async function queryLatestSnapshot() {
       controller_progress, controller_progress_total,
       ticks_to_downgrade,
       storage_energy, terminal_energy,
-      hostiles, roles_json
+      hostiles, hostile_offence, safe_mode, owned, room_cpu,
+      roles_json, distress_json
     FROM room_snapshots
     WHERE snapshot_id = @snapshotId
     ORDER BY room ASC
@@ -315,8 +480,17 @@ export async function queryLatestSnapshot() {
       bucket: snap.cpu_bucket,
       start: snap.cpu_used,
     },
-    phases: [],
+    phases: Object.entries(safeJson(snap.phases_json, {})).map(([name, duration]) => ({ name, duration })),
+    roles: safeJson(snap.roles_cpu_json, {}),
+    cpuPerCreep: snap.cpu_per_creep,
+    memoryBytes: snap.memory_bytes,
     rooms: rooms.map((r) => ({
+      owned: r.owned !== 0,
+      hostileOffence: r.hostile_offence,
+      safeMode: r.safe_mode,
+      cpu: {},
+      cpuTotal: r.room_cpu,
+      distress: safeJson(r.distress_json, []),
       name: r.room,
       shard: r.shard,
       rcl: r.rcl,
@@ -335,6 +509,7 @@ export async function queryLatestSnapshot() {
     totals: {
       creeps: snap.total_creeps,
       rooms: snap.total_rooms,
+      ownedRooms: snap.owned_rooms,
     },
     global: {
       gcl: {
@@ -343,6 +518,7 @@ export async function queryLatestSnapshot() {
         progressTotal: snap.gcl_progress_total,
       },
       credits: snap.credits,
+      ...(snap.pixels === null || snap.pixels === undefined ? {} : { pixels: snap.pixels }),
     },
     ts: snap.ts,
   };

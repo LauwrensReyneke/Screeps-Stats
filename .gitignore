@@ -1,6 +1,12 @@
 # Logs
 logs
 *.log
+
+# Local SQLite history database
+data/
+
+# Dashboard build output: Vercel builds it on deploy (vercel.json buildCommand)
+dashboard/dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

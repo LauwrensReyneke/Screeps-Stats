@@ -11,7 +11,7 @@ import 'dotenv/config';
 import express from 'express';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // ── Lazy-import each handler (ESM dynamic import) ────────────────────────────
 
@@ -52,7 +52,7 @@ loadHandlers().then(({ health, stats, history }) => {
     console.log(`  ➜   http://localhost:${PORT}/api/stats`);
     console.log(`  ➜   http://localhost:${PORT}/api/history`);
     console.log('');
-    console.log('  Frontend (Vite):  http://localhost:5173');
+    console.log('  Frontend (Vite):  http://localhost:8000');
     console.log('');
 
     // Warn about missing required env vars

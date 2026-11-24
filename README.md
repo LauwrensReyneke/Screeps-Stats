@@ -1,13 +1,33 @@
-# Screeps Stats Dashboard
+# Screeps Stats
 
-A Vue 3 + Vite dashboard hosted on Vercel that visualises `Memory.stats` from Screeps.  
-Your Screeps token is **never exposed to the browser** — all API calls are proxied through a Vercel serverless function.
+A dashboard for a Screeps colony. It reads the stats frame your bot writes
+to **memory segment 0**, stores a history in SQLite, and shows:
+
+- **Needs attention:**
+  - distressed rooms (from the bot's health watchdog);
+  - attacks and decaying controllers;
+  - starved rooms;
+  - CPU near or over its limit.
+- **KPIs:**
+  - CPU (range average against the limit) and the bucket, with pixels earned;
+  - GCL with the ETA to the next level;
+  - rooms owned against the GCL cap;
+  - creeps with CPU per creep;
+  - credits with their change over the range.
+- **CPU:** usage against the limit and the 85% pixel gate, plus CPU **by
+  role** (table and stacked history) and **by phase**.
+- **Colony:** stored energy per room, population by role, credits, and GCL
+  progress.
+- **Rooms:** controller level with an ETA to the next RCL, spawn energy,
+  stored energy and its trend, creeps, room CPU, and status. Select a room
+  for its detail drawer.
+
+Your Screeps token never reaches the browser: every Screeps call goes
+through the API functions.
 
 ```
-Browser  ──►  /api/stats  ──►  Screeps API
-                (Vercel fn)          │
-                    ◄────────────────┘
-                normalized JSON
+Browser ──► /api/stats   ──► Screeps API (memory segment 0)
+        ──► /api/history ──► SQLite (local file, or Vercel Blob)
 ```
 
 ---
@@ -17,23 +37,21 @@ Browser  ──►  /api/stats  ──►  Screeps API
 ```
 .
 ├── api/
-│   ├── stats.js          # Serverless: fetch + normalize Memory.stats
-│   └── health.js         # Serverless: liveness check
-├── dashboard/
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
+│   ├── stats.js        # fetch segment 0, normalise, persist a snapshot
+│   ├── history.js      # range queries, downsampled server-side
+│   ├── health.js       # liveness
+│   └── _db.js          # SQLite schema, migrations, queries
+├── dashboard/          # Vue 3 + Vite + Tailwind
 │   └── src/
-│       ├── main.js
-│       ├── App.vue        # Root – polling, layout, state
-│       ├── styles.css     # Dark global theme
-│       └── components/
-│           ├── StatCard.vue
-│           ├── PhaseBars.vue
-│           └── RoomsTable.vue
-├── vercel.json
-├── .env.example
-└── README.md
+│       ├── App.vue               # data loading and layout
+│       ├── components/           # header, KPI cards, panels, rooms table, room drawer
+│       └── lib/
+│           ├── apex.js           # ApexCharts defaults (Karla, light grid)
+│           ├── derive.js         # ETAs and alerts
+│           ├── format.js         # number and time formatting
+│           └── prefs.js          # UI preferences in localStorage
+├── server.js           # local Express wrapper around api/*.js
+└── vercel.json
 ```
 
 ---
@@ -42,170 +60,100 @@ Browser  ──►  /api/stats  ──►  Screeps API
 
 | Variable | Required | Description |
 |---|---|---|
-| `SCREEPS_TOKEN` | ✅ | Your Screeps API token (Account → Settings → Auth Tokens) |
-| `SCREEPS_API_BASE_URL` | ✅ | `https://screeps.com` (or private server URL) |
-| `SCREEPS_SHARD` | optional | Shard name, e.g. `shard0` (default: `shard0`) |
-
-Copy `.env.example` to `.env` and fill in your values:
+| `SCREEPS_TOKEN` | yes | Screeps API token (Account → Auth Tokens) |
+| `SCREEPS_API_BASE_URL` | yes | `https://screeps.com`, or a private server URL |
+| `SCREEPS_SHARD` | no | shard name, default `shard0` |
+| `BLOB_READ_WRITE_TOKEN` | Vercel only | stores the SQLite history in Vercel Blob; leave unset locally |
 
 ```bash
-cp .env.example .env
+cp .env.example .env   # then fill in your values; never commit .env
 ```
-
-> ⚠️ **Never commit `.env` to version control.** It contains your secret token.
 
 ---
 
 ## Local development
 
-No Vercel CLI needed. Everything runs with plain Node + Vite.
+```bash
+npm install     # API packages
+npm run setup   # creates .env from the example, installs the dashboard's packages
+npm run dev     # API on :8080 and UI on :8000
+```
 
-### 1. Install dependencies
+Open **http://localhost:8000**. Locally, history is written to
+`data/screeps-history.db`, which is git-ignored.
+
+To run a second copy alongside (for example, to try changes without
+stopping the first):
 
 ```bash
-# From project root
-npm install
-cd dashboard && npm install && cd ..
+PORT=8081 node server.js
+cd dashboard && API_PORT=8081 npx vite --port 8001
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in your real values:
-
-```
-SCREEPS_TOKEN=your_actual_token
-SCREEPS_API_BASE_URL=https://screeps.com
-SCREEPS_SHARD=shard0
-# BLOB_READ_WRITE_TOKEN=   ← leave blank locally; history tab will be hidden
-```
-
-### 3. Start everything with one command
-
-```bash
-npm run dev
-```
-
-This starts two processes in parallel (via `concurrently`):
-
-| Process | What it does | URL |
-|---|---|---|
-| **API** (`node server.js`) | Express server that imports and runs `api/*.js` handlers, reads `.env` | http://localhost:3000 |
-| **UI** (`vite`) | Vue dev server with HMR, proxies `/api/*` → port 3000 | http://localhost:5173 |
-
-Open **http://localhost:5173** in your browser.
-
-### Verify the API directly
-
-```bash
-# Should return { ok: true, ts: ... }
-curl http://localhost:3000/api/health
-
-# Should return normalized stats JSON (needs valid SCREEPS_TOKEN in .env)
-curl http://localhost:3000/api/stats
-
-# Should return { rows: [], count: 0 } or 503 if BLOB_READ_WRITE_TOKEN not set
-curl http://localhost:3000/api/history
-```
-
-### Run API only (no frontend)
-
-```bash
-npm run api
-```
-
-### Run frontend only (if API is already running separately)
-
-```bash
-npm run ui
-```
+A snapshot is stored whenever `/api/stats` reads a new stats frame: at most
+once a minute, and only while the dashboard (or something else) is polling.
 
 ---
 
-## Build
+## API
 
-```bash
-cd dashboard
-npm install
-npm run build     # outputs to dashboard/dist/
+| Endpoint | Returns |
+|---|---|
+| `GET /api/stats` | latest normalised frame |
+| `GET /api/history?since=<ms>&points=<n>` | global series for the range, folded into about `n` time buckets |
+| `GET /api/history?since=<ms>&points=<n>&scope=rooms` | `{ rooms: { W1N1: [...] } }`, every room in one response |
+| `GET /api/history?room=W1N1&limit=<n>` | legacy: newest raw rows |
+| `GET /api/health` | `{ ok: true }` |
+
+`since=0` means all history. Within each bucket:
+
+- gauges (CPU, energy, creeps) are averaged;
+- levels and counters (tick, GCL, RCL, credits) take the bucket's last value;
+- per-role CPU and phases are averaged per key.
+
+---
+
+## The stats frame (segment 0)
+
+The bot writes one JSON object to `RawMemory.segments[0]` every 20 ticks.
+Anything missing is treated as zero or empty.
+
+```js
+{
+  tick, ts,
+  cpu: { used, limit, bucket, start },
+  phases: { creeps: 14.2, spawns: 0.6, ... },          // CPU per main-loop phase
+  roles: { miner: { count, cpu, cpuPer }, ... },       // CPU per creep role
+  cpuPerCreep, creepCount, roomCount, memoryBytes,
+  global: { gcl: { level, progress, progressTotal }, credits, pixels },
+  rooms: {
+    W1N1: {
+      shard, owned, rcl,
+      energyAvailable, energyCapacityAvailable,
+      storageEnergy, terminalEnergy,
+      creepCount, spawnCount, creepsByRole: { miner: 2, ... },
+      controllerProgress, controllerProgressTotal, ticksToDowngrade,
+      safeMode, safeModeAvailable,
+      hostiles, hostileOffence,
+      distress: ['no miner for 400 ticks', ...],         // health watchdog reasons
+      creeps, spawns, defense, towers, links, planner,   // room CPU by phase
+    },
+  },
+}
 ```
 
 ---
 
 ## Deploy to Vercel
 
-### First deploy
-
 ```bash
-# From project root
-vercel
-```
-
-Follow the prompts. Vercel will detect `vercel.json` and:
-- Build the Vue app from `dashboard/`
-- Serve `dashboard/dist/` as static assets
-- Deploy `api/*.js` as serverless functions
-
-### Set environment variables
-
-In the Vercel dashboard → Project → Settings → Environment Variables, add:
-
-| Key | Value |
-|---|---|
-| `SCREEPS_TOKEN` | your token |
-| `SCREEPS_API_BASE_URL` | `https://screeps.com` |
-| `SCREEPS_SHARD` | `shard0` (optional) |
-
-Or via CLI:
-
-```bash
-vercel env add SCREEPS_TOKEN
-vercel env add SCREEPS_API_BASE_URL
-vercel env add SCREEPS_SHARD
-```
-
-Then redeploy:
-
-```bash
+vercel          # first deploy; vercel.json builds dashboard/ and deploys api/*
 vercel --prod
 ```
 
----
-
-## Screeps Memory.stats convention
-
-The dashboard expects your Screeps bot to populate `Memory.stats` every tick. A minimal example:
-
-```js
-// In your main loop (main.js / main.ts)
-Memory.stats = {
-  tick: Game.time,
-  cpu: {
-    used:   Game.cpu.getUsed(),
-    limit:  Game.cpu.limit,
-    bucket: Game.cpu.bucket,
-    start:  Game.cpu.getUsed(), // capture at loop start
-  },
-  phases: {
-    spawning:    cpuSpawning,
-    movement:    cpuMovement,
-    harvesting:  cpuHarvesting,
-    building:    cpuBuilding,
-  },
-  rooms: {
-    [roomName]: {
-      rcl:              room.controller?.level ?? 0,
-      energy:           room.energyAvailable,
-      energyCapacity:   room.energyCapacityAvailable,
-      creeps:           Object.keys(Game.creeps).filter(n => Game.creeps[n].room.name === roomName).length,
-      spawns:           Object.values(Game.spawns).filter(s => s.room.name === roomName).length,
-    },
-  },
-};
-```
+Set `SCREEPS_TOKEN`, `SCREEPS_API_BASE_URL`, `SCREEPS_SHARD` and
+`BLOB_READ_WRITE_TOKEN` under Project → Settings → Environment Variables.
+`dashboard/dist` is built on deploy and not committed.
 
 ---
 
@@ -213,7 +161,9 @@ Memory.stats = {
 
 | Layer | Tech |
 |---|---|
-| Frontend | Vue 3, Vite |
-| API proxy | Vercel Serverless Functions (Node.js) |
-| Hosting | Vercel |
-| Styling | Tailwind CSS utility classes |
+| UI | Vue 3, Vite, Tailwind CSS (light theme), Karla (self-hosted via Fontsource) |
+| Components | Headless UI (tabs, listbox, radio group, switch, popover, dialog) |
+| Icons | Font Awesome (solid) |
+| Charts | ApexCharts (`vue3-apexcharts`) |
+| API | Vercel serverless functions (Node), Express locally |
+| Storage | SQLite (`better-sqlite3`), in Vercel Blob when deployed |

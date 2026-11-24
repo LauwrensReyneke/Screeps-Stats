@@ -109,12 +109,59 @@ function normalizeStats(raw, fallbackShard) {
     credits: num(rawGlobal.credits, 0),
   };
 
+  if (rawGlobal.pixels !== undefined) global.pixels = num(rawGlobal.pixels, 0);
+
   const totals = {
     creeps: num(stats.creepCount ?? safeRaw.creepCount, rooms.reduce((sum, r) => sum + num(r.creeps, 0), 0)),
     rooms: num(stats.roomCount ?? safeRaw.roomCount, rooms.length),
+    ownedRooms: rooms.filter((r) => r.owned).length,
   };
 
-  return { tick, cpu, phases, rooms, totals, global, ts: Date.now() };
+  // Per-role CPU as the bot measures it on stats ticks: { role: {count, cpu, cpuPer} }.
+  const roles = normalizeRoleCpu(stats.roles || safeRaw.roles);
+
+  return {
+    tick,
+    cpu,
+    phases,
+    roles,
+    cpuPerCreep: num(stats.cpuPerCreep ?? safeRaw.cpuPerCreep, 0),
+    memoryBytes: num(stats.memoryBytes ?? safeRaw.memoryBytes, 0),
+    rooms,
+    totals,
+    global,
+    ts: Date.now(),
+  };
+}
+
+function normalizeRoleCpu(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  for (const [role, entry] of Object.entries(value)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const count = num(entry.count, 0);
+    const cpu = num(entry.cpu, 0);
+    out[role] = { count, cpu, cpuPer: num(entry.cpuPer, count ? cpu / count : 0) };
+  }
+  return out;
+}
+
+// CPU phases the bot attributes to a room (main.js addRoomCpu). `creeps` is
+// CPU here only when the payload also carries `creepCount`; older payloads used
+// `creeps` for the head count.
+const ROOM_CPU_KEYS = ['creeps', 'spawns', 'defense', 'towers', 'links', 'labs', 'planner'];
+
+function normalizeRoomCpu(r) {
+  const out = {};
+  let total = 0;
+  for (const key of ROOM_CPU_KEYS) {
+    if (key === 'creeps' && r.creepCount === undefined) continue;
+    const v = Number(r[key]);
+    if (!Number.isFinite(v)) continue;
+    out[key] = v;
+    total += v;
+  }
+  return { cpu: out, cpuTotal: Math.round(total * 1000) / 1000 };
 }
 
 function firstFinite(...values) {
@@ -126,13 +173,21 @@ function firstFinite(...values) {
 }
 
 function normalizeRoom(r, fallbackShard) {
+  const { cpu, cpuTotal } = normalizeRoomCpu(r);
   return {
+    owned:                   r.owned === undefined ? num(r.rcl ?? r.level, 0) > 0 : Boolean(r.owned),
+    safeMode:                num(r.safeMode, 0),
+    safeModeAvailable:       num(r.safeModeAvailable, 0),
+    hostileOffence:          num(r.hostileOffence, 0),
+    distress:                Array.isArray(r.distress) ? r.distress.map(String) : [],
+    cpu,
+    cpuTotal,
     name:                    r.name || r.roomName || 'unknown',
     shard:                   r.shard || fallbackShard || 'unknown',
     rcl:                     num(r.rcl ?? r.level ?? r.controller?.level, 0),
     energy:                  num(r.energyAvailable ?? r.energy, 0),
     energyCapacity:          num(r.energyCapacityAvailable ?? r.energyCapacity, 0),
-    creeps:                  num(r.creepCount ?? r.creepsCount ?? r.creeps, 0),
+    creeps:                  num(r.creepCount ?? r.creepsCount ?? (r.creepCount === undefined ? r.creeps : 0), 0),
     spawns:                  num(r.spawnCount ?? r.spawnsCount ?? r.spawns, 0),
     creepsByRole:            normalizeRoleMap(r.creepsByRole),
     controllerProgress:      num(r.controllerProgress ?? r.controller?.progress, 0),

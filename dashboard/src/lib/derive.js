@@ -161,3 +161,26 @@ export function etaTrend(rows, { progress, total, level }) {
   }
   return { eta, perHour };
 }
+
+/**
+ * The ETA as of now: the latest point of the rolling trend (the rate over the
+ * last fifth of the range), falling back to the whole-range rate. The range
+ * average lags: on a 24h range it still carried yesterday's slower rate
+ * (27 days against ~22 now).
+ *
+ * @returns {{msLeft: number, perHour: number|null, ticksLeft: number|null}|null}
+ */
+export function currentEta(rows, keys) {
+  const t = etaTrend(rows, keys);
+  if (t.eta.length) {
+    const days = t.eta.at(-1)[1];
+    const perHour = t.perHour.at(-1)?.[1] ?? null;
+    const tickMs = msPerTick(rows);
+    const msLeft = days * 86_400_000;
+    return { msLeft, perHour, ticksLeft: tickMs ? msLeft / tickMs : null };
+  }
+  const e = progressEta(rows, keys);
+  if (!e) return null;
+  const tickMs = msPerTick(rows);
+  return { msLeft: e.msLeft, perHour: tickMs ? e.perTick * (3_600_000 / tickMs) : null, ticksLeft: e.ticksLeft };
+}

@@ -84,11 +84,16 @@
 
         <AlertsPanel class="rise" style="animation-delay: 60ms" :alerts="alerts" @open-room="openRoom" />
 
-        <GclPanel class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" />
+        <!-- Keyed by range: a range switch remounts the time-series charts. Updated
+             in place, ApexCharts kept the old range's axes (a 24h series drawn on
+             the 1h x-axis, its y-axis clipped). The key is the range of the data
+             on screen, so the remount comes with the new data, not before it.
+             Refreshes still update in place. -->
+        <GclPanel :key="`gcl-${loadedRange}`" class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" />
 
         <RemotePanel class="rise" style="animation-delay: 150ms" :remote="data.global?.remote || {}" />
 
-        <section class="rise grid items-start gap-5 xl:grid-cols-2" style="animation-delay: 180ms">
+        <section :key="`charts-${loadedRange}`" class="rise grid items-start gap-5 xl:grid-cols-2" style="animation-delay: 180ms">
           <CpuPanel :history="history" :data="data" />
           <ColonyPanel :history="history" :roomSeries="roomSeries" :ownedRooms="ownedRooms.map((r) => r.name)" />
         </section>
@@ -121,7 +126,7 @@ import RoomDrawer from './components/RoomDrawer.vue';
 import GclPanel from './components/GclPanel.vue';
 import RemotePanel from './components/RemotePanel.vue';
 import { fmtInt, fmtCompact, fmtDuration, fmtBytes, fmtSigned } from './lib/format.js';
-import { buildAlerts, progressEta } from './lib/derive.js';
+import { buildAlerts, currentEta } from './lib/derive.js';
 import { usePref } from './lib/prefs.js';
 
 const RANGES = [
@@ -148,6 +153,8 @@ const now = ref(Date.now());
 const refreshing = ref(false);
 
 const history = ref([]);
+// The range the history on screen belongs to (set when it arrives).
+const loadedRange = ref(null);
 const bucketMs = ref(0);
 const roomSeries = ref({});
 const drawerRoomName = ref(null);
@@ -181,6 +188,7 @@ let historyRequest = 0;
 async function fetchHistory() {
   const id = ++historyRequest;
   const since = sinceMs();
+  const forRange = range.value;
   try {
     const [g, r] = await Promise.all([
       getJson(`/api/history?since=${since}&points=${GLOBAL_POINTS}`),
@@ -190,6 +198,7 @@ async function fetchHistory() {
     history.value = g.rows || [];
     bucketMs.value = g.bucketMs || 0;
     roomSeries.value = r.rooms || {};
+    loadedRange.value = forRange;
   } catch {
     // History is supplementary; the live snapshot still renders.
   }
@@ -247,7 +256,7 @@ const pixelsSub = computed(() => {
   return gained > 0 ? `${fmtInt(px)} pixels · +${gained} in range` : `${fmtInt(px)} pixels`;
 });
 
-const gclEta = computed(() => progressEta(history.value.filter((r) => r.gcl_progress_total > 0),
+const gclEta = computed(() => currentEta(history.value.filter((r) => r.gcl_progress_total > 0),
   { progress: 'gcl_progress', total: 'gcl_progress_total', level: 'gcl_level' }));
 const gclSub = computed(() => {
   const g = data.value?.global?.gcl;

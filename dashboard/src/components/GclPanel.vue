@@ -54,7 +54,7 @@ import Panel from './Panel.vue';
 import EmptyChart from './EmptyChart.vue';
 import { base, PALETTE, stableOptions } from '../lib/apex.js';
 import { fmtCompact, fmtDuration, fmtInt } from '../lib/format.js';
-import { progressEta, msPerTick, etaTrend } from '../lib/derive.js';
+import { currentEta, msPerTick, etaTrend } from '../lib/derive.js';
 
 const props = defineProps({
   history: { type: Array, default: () => [] },
@@ -66,14 +66,13 @@ const BAR_PLAIN = '#a5b4c8';
 const KEYS = { progress: 'gcl_progress', total: 'gcl_progress_total', level: 'gcl_level' };
 
 const gclRows = computed(() => props.history.filter((r) => r.gcl_progress_total > 0));
-const eta = computed(() => progressEta(gclRows.value, KEYS));
+// As of now (latest rolling rate), not the range average, which lags.
+const eta = computed(() => currentEta(gclRows.value, KEYS));
 const trend = computed(() => etaTrend(gclRows.value, KEYS));
-
-// GCL points per hour over the range (within the current level).
-const perHour = computed(() => {
-  if (!eta.value) return null;
+const perHour = computed(() => eta.value?.perHour ?? null);
+const perTick = computed(() => {
   const tickMs = msPerTick(gclRows.value);
-  return tickMs ? eta.value.perTick * (3_600_000 / tickMs) : null;
+  return perHour.value && tickMs ? perHour.value / (3_600_000 / tickMs) : null;
 });
 
 // Change in the ETA across the range: the number this panel exists to shrink.
@@ -115,11 +114,11 @@ const facts = computed(() => [
     label: 'Next level',
     value: eta.value?.msLeft ? fmtDuration(eta.value.msLeft) : '—',
     sub: etaChange.value === null || Math.abs(etaChange.value) < 0.05
-      ? (eta.value ? `${fmtCompact(eta.value.ticksLeft)} ticks · steady` : '')
+      ? (eta.value?.ticksLeft ? `${fmtCompact(eta.value.ticksLeft)} ticks · steady` : '')
       : `${etaChange.value < 0 ? '▼' : '▲'} ${Math.abs(etaChange.value).toFixed(1)} days over the range`,
     tone: etaChange.value !== null && etaChange.value < -0.05 ? 'text-emerald-600' : null,
   },
-  { label: 'GCL / hour', value: perHour.value ? fmtCompact(perHour.value) : '—', sub: eta.value ? `${eta.value.perTick.toFixed(1)} progress/tick` : 'points, current level' },
+  { label: 'GCL / hour', value: perHour.value ? fmtCompact(perHour.value) : '—', sub: perTick.value ? `${perTick.value.toFixed(1)} progress/tick now` : 'points, current level' },
   { label: 'Upgrading', value: reported.value ? `${totalUpgrade.value.toFixed(0)}/tick` : '—', sub: reported.value ? 'energy into controllers now' : 'awaiting the bot' },
   {
     label: 'Boosted',

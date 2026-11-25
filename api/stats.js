@@ -120,6 +120,26 @@ function normalizeStats(raw, fallbackShard) {
     };
   }
 
+  // Remote mining operations (bot lib.remote): { room: {home, active, judged, epc, energy, spent, cpu, window, trip, reserved} }.
+  if (rawGlobal.remote && typeof rawGlobal.remote === 'object') {
+    global.remote = {};
+    for (const [name, o] of Object.entries(rawGlobal.remote)) {
+      if (!o || typeof o !== 'object') continue;
+      global.remote[name] = {
+        home: typeof o.home === 'string' ? o.home : null,
+        active: o.active !== false,
+        judged: !!o.judged,
+        epc: o.epc === null || o.epc === undefined ? null : num(o.epc, 0),
+        energy: num(o.energy, 0),
+        spent: num(o.spent, 0),
+        cpu: num(o.cpu, 0),
+        window: num(o.window, 0),
+        trip: num(o.trip, 0),
+        reserved: !!o.reserved,
+      };
+    }
+  }
+
   const totals = {
     creeps: num(stats.creepCount ?? safeRaw.creepCount, rooms.reduce((sum, r) => sum + num(r.creeps, 0), 0)),
     rooms: num(stats.roomCount ?? safeRaw.roomCount, rooms.length),

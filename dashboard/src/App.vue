@@ -86,6 +86,8 @@
 
         <GclPanel :history="history" :roomSeries="roomSeries" :rooms="rooms" />
 
+        <RemotePanel :remote="data.global?.remote || {}" />
+
         <section class="grid items-start gap-5 xl:grid-cols-2">
           <CpuPanel :history="history" :data="data" />
           <ColonyPanel :history="history" :roomSeries="roomSeries" :ownedRooms="ownedRooms.map((r) => r.name)" />
@@ -117,6 +119,7 @@ import ColonyPanel from './components/ColonyPanel.vue';
 import RoomsTable from './components/RoomsTable.vue';
 import RoomDrawer from './components/RoomDrawer.vue';
 import GclPanel from './components/GclPanel.vue';
+import RemotePanel from './components/RemotePanel.vue';
 import { fmtInt, fmtCompact, fmtDuration, fmtBytes, fmtSigned } from './lib/format.js';
 import { buildAlerts, progressEta } from './lib/derive.js';
 import { usePref } from './lib/prefs.js';

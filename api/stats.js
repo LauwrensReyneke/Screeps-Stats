@@ -214,6 +214,11 @@ function normalizeRoom(r, fallbackShard) {
     policy:                  typeof r.policy === 'string' ? r.policy : null,
     gclFocus:                Boolean(r.gclFocus),
     upgradePerTick:          num(r.upgradePerTick, 0),
+    // Upgrade boosts: upgrader WORK, how much of it is boosted, compound on hand.
+    upgradeWork:             num(r.upgradeWork, 0),
+    boostedWork:             num(r.boostedWork, 0),
+    boostStock:              num(r.boostStock, 0),
+    boostLab:                Boolean(r.boostLab),
     cpu,
     cpuTotal,
     name:                    r.name || r.roomName || 'unknown',

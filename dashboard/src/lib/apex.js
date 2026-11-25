@@ -1,6 +1,8 @@
 // ApexCharts defaults: Karla, no toolbar, quiet light grid. Every chart starts
 // from base() so they read as one system.
 
+import { computed } from 'vue';
+
 export const FONT = "'Karla Variable', Karla, ui-sans-serif, system-ui, sans-serif";
 
 export const PALETTE = {
@@ -40,7 +42,15 @@ export function base(overrides = {}) {
       foreColor: PALETTE.slate,
       toolbar: { show: false },
       zoom: { enabled: false },
-      animations: { enabled: true, speed: 350, animateGradually: { enabled: false } },
+      // First draw eases in; a refresh morphs the data in place
+      // (dynamicAnimation) instead of redrawing the chart from zero.
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 420,
+        animateGradually: { enabled: false },
+        dynamicAnimation: { enabled: true, speed: 500 },
+      },
       background: 'transparent',
     },
     colors: SERIES_COLORS,
@@ -76,4 +86,27 @@ export function sparkline(color) {
     fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.28, opacityTo: 0.02, stops: [0, 100] } },
     tooltip: { enabled: false },
   };
+}
+
+/**
+ * Chart options that keep their identity until their content changes.
+ *
+ * Options built in a computed() come out as a new object on every refresh
+ * (the history array changed, so everything derived from it re-ran), and
+ * vue3-apexcharts answers a new options object with updateOptions(): the
+ * whole chart re-renders and replays its entry animation once a minute.
+ * Comparing a serialised signature (formatters by their source) returns the
+ * previous object when nothing changed, so a refresh only animates the data.
+ */
+export function stableOptions(build) {
+  let prev = null;
+  let prevSig = null;
+  return computed(() => {
+    const next = build();
+    const sig = JSON.stringify(next, (_, v) => (typeof v === 'function' ? v.toString() : v));
+    if (sig === prevSig) return prev;
+    prevSig = sig;
+    prev = next;
+    return next;
+  });
 }

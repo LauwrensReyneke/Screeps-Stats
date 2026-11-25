@@ -24,6 +24,16 @@
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px -8px rgba(15, 23, 42, 0.06);
   }
 
+  /* KPI cards: a quiet lift on hover. */
+  .card-lift {
+    transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+  }
+  .card-lift:hover {
+    @apply border-slate-300/80;
+    transform: translateY(-1px);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 24px -12px rgba(15, 23, 42, 0.14);
+  }
+
   .badge {
     @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold;
   }
@@ -35,4 +45,56 @@
 }
 .apexcharts-tooltip-title {
   @apply border-b border-slate-100 bg-slate-50 font-bold !important;
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+
+/* Tab and chart switches: a short cross-fade with a hint of rise. */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Changing numbers: the old value lifts out while the new one settles in,
+   both in the same grid cell so nothing beside them shifts. */
+.tick-stack {
+  display: inline-grid;
+}
+.tick-stack > * {
+  grid-area: 1 / 1;
+}
+.tick-enter-active,
+.tick-leave-active {
+  transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.tick-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.tick-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* First paint: sections rise in, one after another. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active, .fade-leave-active,
+  .tick-enter-active, .tick-leave-active { transition: none; }
+  .rise { animation: none; }
+  .card-lift, .card-lift:hover { transition: none; transform: none; }
 }

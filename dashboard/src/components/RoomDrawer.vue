@@ -55,8 +55,10 @@
                       <h3 class="text-sm font-bold text-slate-900">{{ CHARTS.find((c) => c.key === chart).label }}</h3>
                       <TabSwitch v-model="chart" :tabs="CHARTS" />
                     </div>
-                    <ApexChart v-if="series.length > 1" :key="chart" type="area" height="240" :options="chartOptions" :series="chartSeries" />
-                    <EmptyChart v-else :height="240" class="mb-4" />
+                    <Transition name="fade" mode="out-in">
+                      <ApexChart v-if="series.length > 1" :key="chart" type="area" height="240" :options="chartOptions" :series="chartSeries" />
+                      <EmptyChart v-else :height="240" class="mb-4" />
+                    </Transition>
                   </div>
 
                   <!-- population -->
@@ -81,7 +83,7 @@ import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } fro
 import { faArrowUpRightFromSquare, faXmark, faHeartPulse } from '@fortawesome/free-solid-svg-icons';
 import TabSwitch from './TabSwitch.vue';
 import EmptyChart from './EmptyChart.vue';
-import { base, PALETTE } from '../lib/apex.js';
+import { base, PALETTE, stableOptions } from '../lib/apex.js';
 import { fmtCompact, fmtDuration, fmtInt } from '../lib/format.js';
 import { progressEta, storedEnergy, CONTROLLER_DOWNGRADE } from '../lib/derive.js';
 
@@ -126,6 +128,13 @@ const facts = computed(() => {
   }
   if (r.owned) {
     out.push({ label: 'Upgrading', value: r.upgradePerTick ? `${r.upgradePerTick.toFixed(1)}/tick` : '—', sub: r.gclFocus ? 'GCL focus' : (r.policy || '') });
+    if (r.upgradeWork > 0 || r.boostLab) {
+      out.push({
+        label: 'Boosted',
+        value: r.upgradeWork ? `${Math.round((r.boostedWork / r.upgradeWork) * 100)}%` : '—',
+        sub: `${r.boostedWork}/${r.upgradeWork} WORK · ${fmtCompact(r.boostStock)} compound${r.boostLab ? '' : ' · no boost lab'}`,
+      });
+    }
   }
   out.push({ label: 'Room CPU', value: r.cpuTotal ? r.cpuTotal.toFixed(2) : '—', sub: r.safeModeAvailable ? `${r.safeModeAvailable} safe modes` : '' });
   return out;
@@ -148,7 +157,7 @@ const chartSeries = computed(() => {
   }
 });
 
-const chartOptions = computed(() => {
+const chartOptions = stableOptions(() => {
   const pct = chart.value === 'fill' || chart.value === 'controller';
   return base({
     chart: { stacked: chart.value === 'stored' },
@@ -164,7 +173,7 @@ const chartOptions = computed(() => {
 
 const roleEntries = computed(() => Object.entries(props.room?.creepsByRole || {}).sort((a, b) => b[1] - a[1]));
 const roleSeries = computed(() => [{ name: 'Creeps', data: roleEntries.value.map(([, c]) => c) }]);
-const roleOptions = computed(() => base({
+const roleOptions = stableOptions(() => base({
   chart: { type: 'bar' },
   plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%' } },
   colors: [PALETTE.indigo],

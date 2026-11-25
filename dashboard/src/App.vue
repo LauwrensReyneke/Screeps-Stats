@@ -36,7 +36,7 @@
         </div>
 
         <!-- KPIs -->
-        <section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <section class="rise grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           <KpiCard
             label="CPU" :icon="faMicrochip" :tone="cpuTone"
             :value="avgCpu.toFixed(1)" :unit="`/ ${cpuLimit}`"
@@ -82,18 +82,18 @@
           />
         </section>
 
-        <AlertsPanel :alerts="alerts" @open-room="openRoom" />
+        <AlertsPanel class="rise" style="animation-delay: 60ms" :alerts="alerts" @open-room="openRoom" />
 
-        <GclPanel :history="history" :roomSeries="roomSeries" :rooms="rooms" />
+        <GclPanel class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" />
 
-        <RemotePanel :remote="data.global?.remote || {}" />
+        <RemotePanel class="rise" style="animation-delay: 150ms" :remote="data.global?.remote || {}" />
 
-        <section class="grid items-start gap-5 xl:grid-cols-2">
+        <section class="rise grid items-start gap-5 xl:grid-cols-2" style="animation-delay: 180ms">
           <CpuPanel :history="history" :data="data" />
           <ColonyPanel :history="history" :roomSeries="roomSeries" :ownedRooms="ownedRooms.map((r) => r.name)" />
         </section>
 
-        <RoomsTable :rooms="rooms" :roomSeries="roomSeries" @open="openRoom" />
+        <RoomsTable class="rise" style="animation-delay: 240ms" :rooms="rooms" :roomSeries="roomSeries" @open="openRoom" />
 
         <p class="pb-2 text-center text-xs text-slate-400">
           {{ history.length }} points over {{ rangeLabel }}<span v-if="bucketMs"> · one point per {{ fmtDuration(bucketMs) }}</span>

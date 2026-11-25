@@ -1,7 +1,7 @@
 <template>
   <!-- No overflow-hidden here: it would clip the info popover. The sparkline
        clips itself to the card's bottom corners instead. -->
-  <div class="card flex min-w-0 flex-col justify-between px-4 pb-2 pt-4">
+  <div class="card card-lift flex min-w-0 flex-col justify-between px-4 pb-2 pt-4">
     <div class="flex items-center justify-between gap-2">
       <div class="flex min-w-0 items-center gap-1.5">
         <span class="truncate text-xs font-bold uppercase tracking-wider text-slate-500">{{ label }}</span>
@@ -13,7 +13,11 @@
     </div>
 
     <div class="mt-2 flex items-baseline gap-1.5">
-      <span class="text-[26px] font-extrabold leading-none tabular-nums text-slate-900">{{ value }}</span>
+      <span class="tick-stack">
+        <Transition name="tick">
+          <span :key="value" class="text-[26px] font-extrabold leading-none tabular-nums text-slate-900">{{ value }}</span>
+        </Transition>
+      </span>
       <span v-if="unit" class="text-sm font-semibold text-slate-400">{{ unit }}</span>
     </div>
 

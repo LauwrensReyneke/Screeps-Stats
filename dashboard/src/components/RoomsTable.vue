@@ -79,7 +79,13 @@
 
             <td class="px-4 py-2.5 text-right tabular-nums text-slate-700">{{ room.creeps }}</td>
             <td class="px-4 py-2.5 text-right tabular-nums" :class="room.gclFocus ? 'font-bold text-violet-700' : 'text-slate-700'">
-              {{ room.upgradePerTick ? `${room.upgradePerTick.toFixed(1)}/t` : '—' }}
+              <span class="inline-flex items-center justify-end gap-1.5">
+                <font-awesome-icon
+                  v-if="room.boostedWork > 0" :icon="faBolt" class="text-[10px] text-emerald-500"
+                  :title="`${room.boostedWork}/${room.upgradeWork} upgrader WORK boosted`"
+                />
+                {{ room.upgradePerTick ? `${room.upgradePerTick.toFixed(1)}/t` : '—' }}
+              </span>
             </td>
             <td class="px-4 py-2.5 text-right tabular-nums text-slate-700">{{ room.cpuTotal ? room.cpuTotal.toFixed(2) : '—' }}</td>
 
@@ -120,7 +126,7 @@
 import { computed, ref } from 'vue';
 import { Switch, SwitchGroup, SwitchLabel } from '@headlessui/vue';
 import {
-  faTableCells, faArrowUp, faArrowDown, faHeartPulse, faShieldHalved, faLock, faCheck, faArrowUpRightFromSquare, faBatteryEmpty, faTowerObservation, faArrowUpRightDots,
+  faTableCells, faArrowUp, faArrowDown, faHeartPulse, faShieldHalved, faLock, faCheck, faArrowUpRightFromSquare, faBatteryEmpty, faTowerObservation, faArrowUpRightDots, faBolt,
 } from '@fortawesome/free-solid-svg-icons';
 import Panel from './Panel.vue';
 import { fmtCompact, fmtSigned, fmtDuration } from '../lib/format.js';

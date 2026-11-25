@@ -2,32 +2,31 @@
   <Panel title="Colony" :icon="faCity" :subtitle="subtitle">
     <template #info>
       Stored energy is storage plus terminal in owned rooms, the buffer the
-      economy runs on. GCL is account-wide controller progress; its ETA comes
-      from the rate across the selected range.
+      economy runs on. Population is creeps by role; credits are the market
+      balance (energy and boost purchases come out of it).
     </template>
     <template #actions>
       <TabSwitch v-model="tab" :tabs="TABS" />
     </template>
 
-    <template v-if="tab === 'energy'">
-      <ApexChart v-if="energySeries.length" type="area" height="300" :options="energyOptions" :series="energySeries" />
-      <EmptyChart v-else :height="300" />
-    </template>
+    <Transition name="fade" mode="out-in">
+      <div :key="tab">
+        <template v-if="tab === 'energy'">
+          <ApexChart v-if="energySeries.length" type="area" height="300" :options="energyOptions" :series="energySeries" />
+          <EmptyChart v-else :height="300" />
+        </template>
 
-    <template v-else-if="tab === 'population'">
-      <ApexChart v-if="populationSeries.length" type="area" height="300" :options="populationOptions" :series="populationSeries" />
-      <EmptyChart v-else :height="300" />
-    </template>
+        <template v-else-if="tab === 'population'">
+          <ApexChart v-if="populationSeries.length" type="area" height="300" :options="populationOptions" :series="populationSeries" />
+          <EmptyChart v-else :height="300" />
+        </template>
 
-    <template v-else-if="tab === 'credits'">
-      <ApexChart v-if="history.length > 1" type="area" height="300" :options="creditOptions" :series="creditSeries" />
-      <EmptyChart v-else :height="300" />
-    </template>
-
-    <template v-else>
-      <ApexChart v-if="gclRows.length > 1" type="area" height="300" :options="gclOptions" :series="gclSeries" />
-      <EmptyChart v-else :height="300" />
-    </template>
+        <template v-else>
+          <ApexChart v-if="history.length > 1" type="area" height="300" :options="creditOptions" :series="creditSeries" />
+          <EmptyChart v-else :height="300" />
+        </template>
+      </div>
+    </Transition>
   </Panel>
 </template>
 
@@ -38,9 +37,8 @@ import { faCity } from '@fortawesome/free-solid-svg-icons';
 import Panel from './Panel.vue';
 import TabSwitch from './TabSwitch.vue';
 import EmptyChart from './EmptyChart.vue';
-import { base, PALETTE } from '../lib/apex.js';
-import { fmtCompact, fmtDuration, fmtSigned } from '../lib/format.js';
-import { progressEta } from '../lib/derive.js';
+import { base, PALETTE, stableOptions } from '../lib/apex.js';
+import { fmtCompact, fmtSigned } from '../lib/format.js';
 import { usePref } from '../lib/prefs.js';
 
 const props = defineProps({
@@ -53,28 +51,22 @@ const TABS = [
   { key: 'energy', label: 'Stored energy' },
   { key: 'population', label: 'Population' },
   { key: 'credits', label: 'Credits' },
-  { key: 'gcl', label: 'GCL' },
 ];
+// GCL moved to the GCL panel (time to next level); an old saved 'gcl' tab
+// falls back to stored energy.
 const tab = usePref('colonyTab', 'energy');
-
-const gclRows = computed(() => props.history.filter((r) => r.gcl_progress_total > 0));
-const gclEta = computed(() => progressEta(gclRows.value, { progress: 'gcl_progress', total: 'gcl_progress_total', level: 'gcl_level' }));
+if (!TABS.some((t) => t.key === tab.value)) tab.value = 'energy';
 
 const subtitle = computed(() => {
   if (tab.value === 'credits' && props.history.length > 1) {
     const d = props.history.at(-1).credits - props.history[0].credits;
     return `${fmtSigned(d)} credits over the range`;
   }
-  if (tab.value === 'gcl') {
-    const last = gclRows.value.at(-1);
-    if (!last) return 'Global control level';
-    return `GCL ${last.gcl_level} · next level in ${gclEta.value ? fmtDuration(gclEta.value.msLeft) : '—'}`;
-  }
   if (tab.value === 'energy') {
     const total = energyTotals.value;
     if (total.length > 1) return `${fmtCompact(total.at(-1)[1])} stored · ${fmtSigned(total.at(-1)[1] - total[0][1])} over the range`;
   }
-  return 'Energy, population, credits and GCL';
+  return 'Energy, population and credits';
 });
 
 // Series per owned room, aligned on bucket start so stacking lines up.
@@ -150,22 +142,11 @@ const populationOptions = base({
 });
 
 const creditSeries = computed(() => [{ name: 'Credits', data: props.history.map((r) => [r.ts, Math.round(r.credits)]) }]);
-const creditOptions = computed(() => base({
+const creditOptions = stableOptions(() => base({
   colors: [PALETTE.emerald],
   fill: { type: 'gradient', gradient: { opacityFrom: 0.3, opacityTo: 0.02 } },
   yaxis: { labels: { formatter: (v) => fmtCompact(v) } },
   tooltip: { y: { formatter: (v) => fmtCompact(v, 2) } },
-}));
-
-const gclSeries = computed(() => [{
-  name: 'Progress to next level',
-  data: gclRows.value.map((r) => [r.ts, +((r.gcl_progress / r.gcl_progress_total) * 100).toFixed(2)]),
-}]);
-const gclOptions = computed(() => base({
-  colors: [PALETTE.violet],
-  fill: { type: 'gradient', gradient: { opacityFrom: 0.3, opacityTo: 0.02 } },
-  yaxis: { min: 0, max: 100, labels: { formatter: (v) => `${Math.round(v)}%` } },
-  tooltip: { y: { formatter: (v) => `${v.toFixed(2)}%` } },
 }));
 
 </script>

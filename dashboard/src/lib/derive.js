@@ -125,3 +125,39 @@ export function buildAlerts({ data, history }) {
   const order = { critical: 0, warning: 1, info: 2 };
   return alerts.sort((a, b) => order[a.level] - order[b.level]);
 }
+
+/**
+ * Time to the next level over the range, from a rolling progress rate: one
+ * point per history row, each using the rate across the preceding window.
+ * Rows from before the last level-up are skipped (progress resets).
+ *
+ * @returns {{eta: [number, number][], perHour: [number, number][]}} days and points/hour
+ */
+export function etaTrend(rows, { progress, total, level }) {
+  const pts = (rows || []).filter((r) => Number(r.tick) > 0 && Number(r[total]) > 0);
+  if (pts.length < 3) return { eta: [], perHour: [] };
+  const current = pts[pts.length - 1][level];
+  const same = pts.filter((r) => r[level] === current);
+  const tickMs = msPerTick(same) || msPerTick(pts);
+  if (!tickMs || same.length < 3) return { eta: [], perHour: [] };
+
+  // A window of about a fifth of the range: GCL progress arrives in uneven
+  // steps (upgraders are replaced, boosts land, stats ticks are sampled), and
+  // a short window turned that into ±2-day swings on an hour's range. A
+  // fifth still shows a real change within the range.
+  const k = Math.max(3, Math.ceil(same.length / 5));
+  const eta = [];
+  const perHour = [];
+  for (let i = k; i < same.length; i++) {
+    const a = same[i - k];
+    const b = same[i];
+    const dTick = Number(b.tick) - Number(a.tick);
+    const gained = Number(b[progress]) - Number(a[progress]);
+    if (dTick <= 0 || gained <= 0) continue;
+    const rate = gained / dTick;
+    const left = Number(b[total]) - Number(b[progress]);
+    eta.push([Number(b.ts), +((left / rate) * tickMs / 86_400_000).toFixed(2)]);
+    perHour.push([Number(b.ts), Math.round(rate * (3_600_000 / tickMs))]);
+  }
+  return { eta, perHour };
+}

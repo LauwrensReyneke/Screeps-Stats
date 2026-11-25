@@ -9,6 +9,8 @@
       <TabSwitch v-model="tab" :tabs="TABS" />
     </template>
 
+    <Transition name="fade" mode="out-in">
+    <div :key="tab">
     <!-- Usage -->
     <template v-if="tab === 'usage'">
       <ApexChart v-if="history.length > 1" type="line" height="290" :options="usageOptions" :series="usageSeries" />
@@ -62,6 +64,8 @@
       <ApexChart v-if="phaseRows.length" type="bar" :height="Math.max(220, phaseRows.length * 30)" :options="phaseOptions" :series="phaseSeries" />
       <EmptyChart v-else :height="260">No phase data yet.</EmptyChart>
     </template>
+    </div>
+    </Transition>
   </Panel>
 </template>
 
@@ -72,7 +76,7 @@ import { faMicrochip } from '@fortawesome/free-solid-svg-icons';
 import Panel from './Panel.vue';
 import TabSwitch from './TabSwitch.vue';
 import EmptyChart from './EmptyChart.vue';
-import { base, PALETTE, SERIES_COLORS } from '../lib/apex.js';
+import { base, PALETTE, SERIES_COLORS, stableOptions } from '../lib/apex.js';
 import { usePref } from '../lib/prefs.js';
 
 const props = defineProps({
@@ -106,7 +110,7 @@ const usageSeries = computed(() => [
   { name: 'CPU used', type: 'line', data: props.history.map((r) => [r.ts, +Number(r.cpu_used).toFixed(2)]) },
   { name: 'Bucket', type: 'area', data: props.history.map((r) => [r.ts, Math.round(r.cpu_bucket)]) },
 ]);
-const usageOptions = computed(() => base({
+const usageOptions = stableOptions(() => base({
   colors: [PALETTE.indigo, PALETTE.sky],
   stroke: { width: [2.5, 1.5] },
   fill: { type: ['solid', 'gradient'], gradient: { opacityFrom: 0.25, opacityTo: 0.02 } },
@@ -119,9 +123,9 @@ const usageOptions = computed(() => base({
   annotations: {
     yaxis: [
       { y: limit.value, borderColor: PALETTE.rose, strokeDashArray: 4,
-        label: { text: `limit ${limit.value}`, borderColor: 'transparent', style: { color: PALETTE.rose, background: 'transparent', fontWeight: 700 } } },
+        label: { text: `limit ${limit.value}`, position: 'left', textAnchor: 'start', offsetX: 8, borderColor: 'transparent', style: { color: PALETTE.rose, background: 'transparent', fontWeight: 700 } } },
       { y: limit.value * 0.85, borderColor: PALETTE.amber, strokeDashArray: 4,
-        label: { text: 'pixel gate', borderColor: 'transparent', style: { color: PALETTE.amber, background: 'transparent', fontWeight: 700 } } },
+        label: { text: 'pixel gate', position: 'left', textAnchor: 'start', offsetX: 8, offsetY: 16, borderColor: 'transparent', style: { color: PALETTE.amber, background: 'transparent', fontWeight: 700 } } },
     ],
   },
   tooltip: { shared: true, y: { formatter: (v, { seriesIndex }) => (seriesIndex === 0 ? v.toFixed(2) : Math.round(v).toLocaleString('en')) } },
@@ -167,7 +171,7 @@ const roleHistorySeries = computed(() => {
   });
   return series;
 });
-const roleHistoryOptions = computed(() => base({
+const roleHistoryOptions = stableOptions(() => base({
   chart: { stacked: true },
   colors: [...roleRows.value.slice(0, 7).map((r) => r.color), PALETTE.muted],
   stroke: { width: 1 },
@@ -192,7 +196,7 @@ const phaseRows = computed(() => {
   return Object.entries(acc).map(([name, v]) => ({ name, v })).filter((p) => p.v >= 0.005).sort((a, b) => b.v - a.v);
 });
 const phaseSeries = computed(() => [{ name: 'CPU', data: phaseRows.value.map((p) => +p.v.toFixed(3)) }]);
-const phaseOptions = computed(() => base({
+const phaseOptions = stableOptions(() => base({
   chart: { type: 'bar' },
   plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '62%', distributed: true } },
   colors: phaseRows.value.map((_, i) => SERIES_COLORS[i % SERIES_COLORS.length]),

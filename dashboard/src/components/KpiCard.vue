@@ -21,7 +21,7 @@
       <span v-if="delta" class="inline-flex items-center gap-1 font-bold" :class="deltaClass">
         <font-awesome-icon :icon="deltaIcon" class="text-[9px]" />{{ delta.text }}
       </span>
-      <span v-if="sub" class="truncate font-medium text-slate-500">{{ sub }}</span>
+      <span v-if="sub" class="truncate font-medium text-slate-500" :title="sub">{{ sub }}</span>
     </div>
 
     <div class="-mx-4 -mb-2 mt-1 h-12 overflow-hidden rounded-b-xl">

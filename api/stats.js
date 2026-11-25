@@ -116,6 +116,7 @@ function normalizeStats(raw, fallbackShard) {
       energyBudget: num(rawGlobal.market.energyBudget, 0),
       boostSpent: num(rawGlobal.market.boostSpent, 0),
       boostBudget: num(rawGlobal.market.boostBudget, 0),
+      energyBuyStatus: typeof rawGlobal.market.energyBuyStatus === 'string' ? rawGlobal.market.energyBuyStatus : null,
     };
   }
 

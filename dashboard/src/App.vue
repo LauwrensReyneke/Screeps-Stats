@@ -271,7 +271,10 @@ const marketSub = computed(() => {
   const parts = [];
   if (m.energySpent) parts.push(`${fmtCompact(m.energySpent)} on energy`);
   if (m.boostSpent) parts.push(`${fmtCompact(m.boostSpent)} on boosts`);
-  return parts.length ? `spent ${parts.join(', ')}` : 'no buying this window';
+  if (parts.length) return `spent ${parts.join(', ')}`;
+  // Not buying: say why (the bot reports the reason), so a silent buyer
+  // is visible.
+  return m.energyBuyStatus ? `not buying: ${m.energyBuyStatus}` : 'no buying this window';
 });
 
 const alerts = computed(() => buildAlerts({ data: data.value ? { ...data.value, rooms: rooms.value } : null, history: history.value }));

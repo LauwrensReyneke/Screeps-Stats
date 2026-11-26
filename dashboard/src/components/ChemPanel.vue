@@ -88,6 +88,12 @@
       </span>
     </div>
 
+    <!-- Buying base minerals -->
+    <p v-if="chem.buyStatus" class="mt-3 text-xs text-slate-500">
+      <span class="font-bold uppercase tracking-wide text-slate-400">Mineral buying</span>
+      <span class="ml-2">{{ cap(chem.buyStatus) }}</span>
+    </p>
+
     <!-- Where the boost goes -->
     <div v-if="boostRooms.length" class="mt-5">
       <div class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Boost rooms</div>

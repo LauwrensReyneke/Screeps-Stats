@@ -155,6 +155,7 @@ function normalizeStats(raw, fallbackShard) {
       possible: optNum(c.possible),
       limit: typeof c.limit === 'string' ? c.limit : null,
       labs,
+      buyStatus: typeof c.buyStatus === 'string' ? c.buyStatus : null,
       satellites: Array.isArray(c.satellites) ? c.satellites
         .filter((x) => x && typeof x.room === 'string')
         .map((x) => ({ room: x.room, step: typeof x.step === 'string' ? x.step : null, since: optNum(x.since) })) : [],

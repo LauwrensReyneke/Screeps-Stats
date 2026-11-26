@@ -1,7 +1,8 @@
 <template>
   <Panel v-if="chem" title="Boost chemistry" :icon="faFlask" :subtitle="subtitle">
     <template #info>
-      The hub room makes GH, an upgrade boost (+50% controller progress per energy), from minerals we mine:
+      Other rooms with labs (satellites) make ZK or UL from their own minerals until the target is met, and
+      ship it to the hub. The hub room makes GH, an upgrade boost (+50% controller progress per energy), from minerals we mine:
       Z + K → ZK, U + L → UL, ZK + UL → G, G + H → GH. It runs one step at a time in its labs, in batches of
       {{ fmtInt(chem.stepTarget || 1000) }}, and stops at {{ fmtInt(chem.target) }} GH. GH is shipped to rooms
       with a boost lab, and their upgraders are boosted as they spawn. Rate and ETA come from what the labs
@@ -77,6 +78,14 @@
       <p v-if="labs.blocker" class="mt-2 flex items-center gap-1.5 text-xs font-bold text-amber-600">
         <font-awesome-icon :icon="faTriangleExclamation" /> {{ cap(labs.blocker) }}
       </p>
+    </div>
+
+    <!-- Satellites -->
+    <div v-if="(chem.satellites || []).length" class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+      <span class="font-bold uppercase tracking-wide text-slate-400">Satellites</span>
+      <span v-for="s in chem.satellites" :key="s.room" class="rounded-full bg-indigo-50 px-2.5 py-1 font-bold text-indigo-700">
+        {{ s.room }} · making {{ s.step }}<span v-if="s.since && tick" class="font-normal text-indigo-500"> for {{ ticksToText(tick - s.since) }}</span>
+      </span>
     </div>
 
     <!-- Where the boost goes -->

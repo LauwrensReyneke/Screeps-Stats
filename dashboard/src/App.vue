@@ -91,6 +91,8 @@
              Refreshes still update in place. -->
         <GclPanel :key="`gcl-${loadedRange}`" class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" :boostStatus="data.global?.market?.boostBuyStatus || null" :chem="data.global?.chem || null" :gclExport="data.global?.gclExport || []" />
 
+        <EnergyPanel class="rise" style="animation-delay: 135ms" :energy="data.global?.energy || null" />
+
         <RemotePanel class="rise" style="animation-delay: 150ms" :remote="data.global?.remote || {}" />
 
         <section :key="`charts-${loadedRange}`" class="rise grid items-start gap-5 xl:grid-cols-2" style="animation-delay: 180ms">
@@ -125,6 +127,7 @@ import RoomsTable from './components/RoomsTable.vue';
 import RoomDrawer from './components/RoomDrawer.vue';
 import GclPanel from './components/GclPanel.vue';
 import RemotePanel from './components/RemotePanel.vue';
+import EnergyPanel from './components/EnergyPanel.vue';
 import { fmtInt, fmtCompact, fmtDuration, fmtBytes, fmtSigned } from './lib/format.js';
 import { buildAlerts, currentEta } from './lib/derive.js';
 import { usePref } from './lib/prefs.js';

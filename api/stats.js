@@ -160,6 +160,20 @@ function normalizeStats(raw, fallbackShard) {
     }
   }
 
+  // Energy ledger (bot lib.ledger): per-tick flows, { total: {field: n}, rooms: { room: {field: n} } }.
+  if (rawGlobal.energy && typeof rawGlobal.energy === 'object') {
+    const flows = (o) => {
+      const out = {};
+      for (const [k, v] of Object.entries(o || {})) out[k] = num(v, 0);
+      return out;
+    };
+    const rooms = {};
+    for (const [name, o] of Object.entries(rawGlobal.energy.rooms || {})) {
+      if (o && typeof o === 'object') rooms[name] = flows(o);
+    }
+    global.energy = { total: flows(rawGlobal.energy.total), rooms };
+  }
+
   const totals = {
     creeps: num(stats.creepCount ?? safeRaw.creepCount, rooms.reduce((sum, r) => sum + num(r.creeps, 0), 0)),
     rooms: num(stats.roomCount ?? safeRaw.roomCount, rooms.length),

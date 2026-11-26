@@ -64,6 +64,8 @@ const props = defineProps({
   boostStatus: { type: String, default: null },
   // Boost chemistry: { hub, step, target, stock } (bot lib.chem).
   chem: { type: Object, default: null },
+  // Boosted rooms receiving RCL8 surplus: [{ room, gain }] (bot lib.terminals).
+  gclExport: { type: Array, default: () => [] },
 });
 
 const BAR_PLAIN = '#a5b4c8';
@@ -147,7 +149,13 @@ const facts = computed(() => [
 const subtitle = computed(() => {
   const n = focused.value.length;
   const focus = n ? `${n} room${n === 1 ? '' : 's'} in GCL focus` : 'No room above its reserve';
-  return boostReported.value ? `${focus} · ${fmtInt(boostedWork.value)} boosted WORK` : focus;
+  const parts = [focus];
+  if (boostReported.value) parts.push(`${fmtInt(boostedWork.value)} boosted WORK`);
+  // RCL8 rooms keep small upgraders and ship their surplus here instead.
+  if (props.gclExport.length) {
+    parts.push(`RCL8 surplus → ${props.gclExport.map((e) => `${e.room} (×${e.gain.toFixed(2)})`).join(', ')}`);
+  }
+  return parts.join(' · ');
 });
 
 // ── Time to next level ─────────────────────────────────────────────────────

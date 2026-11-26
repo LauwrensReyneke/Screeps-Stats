@@ -133,6 +133,13 @@ function normalizeStats(raw, fallbackShard) {
     };
   }
 
+  // Boosted rooms RCL8 surplus is shipped to (bot lib.terminals): [{ room, gain }].
+  if (Array.isArray(rawGlobal.gclExport)) {
+    global.gclExport = rawGlobal.gclExport
+      .filter((e) => e && typeof e.room === 'string')
+      .map((e) => ({ room: e.room, gain: num(e.gain, 0) }));
+  }
+
   // Remote mining operations (bot lib.remote): { room: {home, active, judged, epc, energy, spent, cpu, window, trip, reserved} }.
   if (rawGlobal.remote && typeof rawGlobal.remote === 'object') {
     global.remote = {};

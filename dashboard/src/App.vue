@@ -91,6 +91,8 @@
              Refreshes still update in place. -->
         <GclPanel :key="`gcl-${loadedRange}`" class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" :boostStatus="data.global?.market?.boostBuyStatus || null" :chem="data.global?.chem || null" :gclExport="data.global?.gclExport || []" />
 
+        <ChemPanel class="rise" style="animation-delay: 128ms" :chem="data.global?.chem || null" :rooms="rooms" :tickMs="tickMs" :tick="data.tick || 0" />
+
         <EnergyPanel class="rise" style="animation-delay: 135ms" :energy="data.global?.energy || null" />
 
         <RemotePanel class="rise" style="animation-delay: 150ms" :remote="data.global?.remote || {}" />
@@ -128,8 +130,9 @@ import RoomDrawer from './components/RoomDrawer.vue';
 import GclPanel from './components/GclPanel.vue';
 import RemotePanel from './components/RemotePanel.vue';
 import EnergyPanel from './components/EnergyPanel.vue';
+import ChemPanel from './components/ChemPanel.vue';
 import { fmtInt, fmtCompact, fmtDuration, fmtBytes, fmtSigned } from './lib/format.js';
-import { buildAlerts, currentEta } from './lib/derive.js';
+import { buildAlerts, currentEta, msPerTick } from './lib/derive.js';
 import { usePref } from './lib/prefs.js';
 
 const RANGES = [
@@ -227,6 +230,9 @@ watch(range, fetchHistory);
 // ── derived ────────────────────────────────────────────────────────────────
 const shardOptions = computed(() => [...new Set((data.value?.rooms || []).map((r) => r.shard || 'unknown'))].sort());
 watch(shardOptions, (opts) => { if (shard.value !== 'all' && !opts.includes(shard.value)) shard.value = 'all'; });
+
+// Milliseconds per game tick over the loaded range, for tick-to-time ETAs.
+const tickMs = computed(() => msPerTick(history.value));
 
 const rooms = computed(() => (data.value?.rooms || [])
   .filter((r) => shard.value === 'all' || r.shard === shard.value)

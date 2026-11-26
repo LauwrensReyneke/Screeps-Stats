@@ -125,11 +125,36 @@ function normalizeStats(raw, fallbackShard) {
   if (rawGlobal.chem && typeof rawGlobal.chem === 'object' && typeof rawGlobal.chem.hub === 'string') {
     const stock = {};
     for (const [k, v] of Object.entries(rawGlobal.chem.stock || {})) stock[k] = num(v, 0);
+    const c = rawGlobal.chem;
+    const made = {};
+    for (const [k, v] of Object.entries(c.made || {})) made[k] = num(v, 0);
+    const optNum = (v) => (v === null || v === undefined ? null : num(v, 0));
+    const labs = c.labs && typeof c.labs === 'object' ? {
+      inputs: Array.isArray(c.labs.inputs) ? c.labs.inputs.map((x) => ({
+        want: typeof x.want === 'string' ? x.want : null,
+        held: typeof x.held === 'string' ? x.held : null,
+        amount: num(x.amount, 0),
+      })) : [],
+      outputs: num(c.labs.outputs, 0),
+      reacting: num(c.labs.reacting, 0),
+      holding: num(c.labs.holding, 0),
+      blocker: typeof c.labs.blocker === 'string' ? c.labs.blocker : null,
+    } : null;
     global.chem = {
-      hub: rawGlobal.chem.hub,
-      step: typeof rawGlobal.chem.step === 'string' ? rawGlobal.chem.step : null,
-      target: num(rawGlobal.chem.target, 0),
+      hub: c.hub,
+      step: typeof c.step === 'string' ? c.step : null,
+      stepInputs: Array.isArray(c.stepInputs) ? c.stepInputs.filter((x) => typeof x === 'string') : null,
+      stepSince: optNum(c.stepSince),
+      target: num(c.target, 0),
+      stepTarget: num(c.stepTarget, 0),
       stock,
+      made,
+      rate: optNum(c.rate),
+      reactionsLeft: optNum(c.reactionsLeft),
+      etaTicks: optNum(c.etaTicks),
+      possible: optNum(c.possible),
+      limit: typeof c.limit === 'string' ? c.limit : null,
+      labs,
     };
   }
 

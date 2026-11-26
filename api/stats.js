@@ -121,6 +121,18 @@ function normalizeStats(raw, fallbackShard) {
     };
   }
 
+  // Boost chemistry (bot lib.chem): { hub, step, target, stock: { resource: amount } }.
+  if (rawGlobal.chem && typeof rawGlobal.chem === 'object' && typeof rawGlobal.chem.hub === 'string') {
+    const stock = {};
+    for (const [k, v] of Object.entries(rawGlobal.chem.stock || {})) stock[k] = num(v, 0);
+    global.chem = {
+      hub: rawGlobal.chem.hub,
+      step: typeof rawGlobal.chem.step === 'string' ? rawGlobal.chem.step : null,
+      target: num(rawGlobal.chem.target, 0),
+      stock,
+    };
+  }
+
   // Remote mining operations (bot lib.remote): { room: {home, active, judged, epc, energy, spent, cpu, window, trip, reserved} }.
   if (rawGlobal.remote && typeof rawGlobal.remote === 'object') {
     global.remote = {};

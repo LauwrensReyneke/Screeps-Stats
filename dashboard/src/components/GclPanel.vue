@@ -9,7 +9,7 @@
       <b>GCL focus</b> and spends the excess on its controller.
     </template>
 
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3" :class="chem ? 'xl:grid-cols-6' : 'xl:grid-cols-5'">
       <div v-for="f in facts" :key="f.label" class="rounded-lg bg-slate-50 px-3 py-2">
         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ f.label }}</p>
         <div class="tick-stack">
@@ -62,6 +62,8 @@ const props = defineProps({
   rooms: { type: Array, default: () => [] },
   // The bot's reason for the last boost purchase (or its absence).
   boostStatus: { type: String, default: null },
+  // Boost chemistry: { hub, step, target, stock } (bot lib.chem).
+  chem: { type: Object, default: null },
 });
 
 const BAR_PLAIN = '#a5b4c8';
@@ -133,6 +135,13 @@ const facts = computed(() => [
     tone: boostedWork.value > 0 ? 'text-emerald-600' : null,
   },
   { label: 'In focus', value: `${focused.value.length} room${focused.value.length === 1 ? '' : 's'}`, sub: focused.value.map((r) => r.name).join(', ') || 'none above reserve' },
+  ...(props.chem ? [{
+    label: 'Boost chemistry',
+    value: `${fmtCompact(props.chem.stock?.GH || 0)} / ${fmtCompact(props.chem.target)} GH`,
+    sub: `${props.chem.hub} · ${props.chem.step ? `making ${props.chem.step}` : 'idle'} · ` +
+      ['G', 'ZK', 'UL'].map((k) => `${k} ${fmtCompact(props.chem.stock?.[k] || 0)}`).join(' · '),
+    tone: props.chem.step ? 'text-indigo-600' : null,
+  }] : []),
 ]);
 
 const subtitle = computed(() => {

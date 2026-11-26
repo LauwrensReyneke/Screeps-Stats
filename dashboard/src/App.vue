@@ -89,7 +89,7 @@
              the 1h x-axis, its y-axis clipped). The key is the range of the data
              on screen, so the remount comes with the new data, not before it.
              Refreshes still update in place. -->
-        <GclPanel :key="`gcl-${loadedRange}`" class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" :boostStatus="data.global?.market?.boostBuyStatus || null" />
+        <GclPanel :key="`gcl-${loadedRange}`" class="rise" style="animation-delay: 120ms" :history="history" :roomSeries="roomSeries" :rooms="rooms" :boostStatus="data.global?.market?.boostBuyStatus || null" :chem="data.global?.chem || null" />
 
         <RemotePanel class="rise" style="animation-delay: 150ms" :remote="data.global?.remote || {}" />
 

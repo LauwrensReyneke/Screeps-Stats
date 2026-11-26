@@ -60,6 +60,8 @@ const props = defineProps({
   history: { type: Array, default: () => [] },
   roomSeries: { type: Object, default: () => ({}) },
   rooms: { type: Array, default: () => [] },
+  // The bot's reason for the last boost purchase (or its absence).
+  boostStatus: { type: String, default: null },
 });
 
 const BAR_PLAIN = '#a5b4c8';
@@ -123,9 +125,11 @@ const facts = computed(() => [
   {
     label: 'Boosted',
     value: boostReported.value ? `${work.value ? Math.round((boostedWork.value / work.value) * 100) : 0}%` : '—',
-    sub: boostReported.value
-      ? `${fmtInt(boostedWork.value)}/${fmtInt(work.value)} WORK · ${fmtCompact(boostStock.value)} in stock · ${boostLabs.value} lab${boostLabs.value === 1 ? '' : 's'}`
-      : 'awaiting the bot',
+    sub: !boostReported.value ? 'awaiting the bot'
+      // Nothing in stock: say why nothing is bought (e.g. no price history).
+      : (boostStock.value === 0 && boostedWork.value === 0 && props.boostStatus)
+        ? `not buying: ${props.boostStatus}`
+        : `${fmtInt(boostedWork.value)}/${fmtInt(work.value)} WORK · ${fmtCompact(boostStock.value)} in stock · ${boostLabs.value} lab${boostLabs.value === 1 ? '' : 's'}`,
     tone: boostedWork.value > 0 ? 'text-emerald-600' : null,
   },
   { label: 'In focus', value: `${focused.value.length} room${focused.value.length === 1 ? '' : 's'}`, sub: focused.value.map((r) => r.name).join(', ') || 'none above reserve' },
